@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { YoutubeApiError } from '@/features/youtube/youtubeApiClient';
+
 import type { SubscribedChannel } from './subscribedChannel';
-import { fetchAllSubscribedChannels, YoutubeApiError } from './youtubeSubscriptionsApi';
+import { fetchAllSubscribedChannels } from './youtubeSubscriptionsApi';
 
 export type SubscribedChannelsState =
   | { status: 'loading' }
@@ -28,7 +30,7 @@ export function useSubscribedChannels(
   const loadChannels = useCallback(async () => {
     try {
       const accessToken = await getAccessToken();
-      const channels = await fetchAllSubscribedChannels(accessToken);
+      const channels = await fetchAllSubscribedChannels(accessToken, 'alphabetical');
 
       if (isMountedRef.current) {
         setState({ status: 'loaded', channels });

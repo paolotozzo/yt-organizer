@@ -7,6 +7,8 @@ import {
   type FolderNameValidation,
 } from '@/features/folders/folderLibrary';
 import { usePersistedFolderLibrary } from '@/features/folders/usePersistedFolderLibrary';
+import type { ChannelSortOrder } from '@/features/sorting/channelSorting';
+import { useChannelSorting, type SortProgress } from '@/features/sorting/useChannelSorting';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import {
   useSubscribedChannels,
@@ -18,8 +20,13 @@ type FolderNameResult = FolderNameValidation & { folderId?: string };
 
 type ChannelInboxContextValue = {
   subscriptionsState: SubscribedChannelsState;
-  /** Empty until the subscriptions have loaded. */
+  /** In the order the user picked. Empty until the subscriptions have loaded. */
   subscribedChannels: SubscribedChannel[];
+  sortOrder: ChannelSortOrder;
+  setSortOrder: (sortOrder: ChannelSortOrder) => void;
+  sortProgress: SortProgress;
+  sortErrorMessage: string | null;
+  latestUploadAtByChannelId: ReadonlyMap<string, number | null>;
   isRefreshing: boolean;
   refreshSubscriptions: () => Promise<void>;
   isLibraryLoaded: boolean;
@@ -52,8 +59,16 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
   const { getAccessToken } = useAuth();
   const subscriptions = useSubscribedChannels(getAccessToken);
   const { library, isLibraryLoaded, dispatch } = usePersistedFolderLibrary(userId);
-  const subscribedChannels =
+  const channelsInApiOrder =
     subscriptions.state.status === 'loaded' ? subscriptions.state.channels : NO_CHANNELS;
+  const sorting = useChannelSorting(userId, getAccessToken, channelsInApiOrder);
+  const { refresh: refreshChannelList } = subscriptions;
+  const { refreshSortData } = sorting;
+
+  const refreshSubscriptions = useCallback(async () => {
+    refreshSortData();
+    await refreshChannelList();
+  }, [refreshChannelList, refreshSortData]);
 
   useEffect(() => {
     if (isLibraryLoaded && subscriptions.state.status === 'loaded') {
@@ -112,9 +127,14 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
   const contextValue = useMemo<ChannelInboxContextValue>(
     () => ({
       subscriptionsState: subscriptions.state,
-      subscribedChannels,
+      subscribedChannels: sorting.sortedChannels,
+      sortOrder: sorting.sortOrder,
+      setSortOrder: sorting.setSortOrder,
+      sortProgress: sorting.progress,
+      sortErrorMessage: sorting.errorMessage,
+      latestUploadAtByChannelId: sorting.latestUploadAtByChannelId,
       isRefreshing: subscriptions.isRefreshing,
-      refreshSubscriptions: subscriptions.refresh,
+      refreshSubscriptions,
       isLibraryLoaded,
       library,
       createFolder,
@@ -124,8 +144,8 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
     [
       subscriptions.state,
       subscriptions.isRefreshing,
-      subscriptions.refresh,
-      subscribedChannels,
+      refreshSubscriptions,
+      sorting,
       isLibraryLoaded,
       library,
       createFolder,

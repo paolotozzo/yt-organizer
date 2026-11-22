@@ -17,8 +17,11 @@ import { ReorderableFolderLists } from '@/features/inbox/components/ReorderableF
 import { SectionHeader } from '@/features/inbox/components/SectionHeader';
 import { SegmentedControl } from '@/features/inbox/components/SegmentedControl';
 import { SelectionActionBar } from '@/features/inbox/components/SelectionActionBar';
+import { SortPicker } from '@/features/inbox/components/SortPicker';
+import { describeChannelSubtitle } from '@/features/inbox/describeChannelSubtitle';
 import { useChannelSelection } from '@/features/inbox/useChannelSelection';
 import { colors, spacing } from '@/theme/colors';
+import { useCurrentTime } from '@/utils/useCurrentTime';
 
 type ChannelFilter = 'unassigned' | 'all';
 
@@ -61,6 +64,8 @@ function OrganizedInbox() {
   const {
     library,
     subscribedChannels,
+    sortOrder,
+    latestUploadAtByChannelId,
     isRefreshing,
     refreshSubscriptions,
     createFolder,
@@ -77,6 +82,7 @@ function OrganizedInbox() {
   );
   const visibleChannels = channelFilter === 'unassigned' ? unassignedChannels : subscribedChannels;
   const hasSelection = selection.selectedCount > 0;
+  const now = useCurrentTime();
   const { selectedChannelIds, clearSelection } = selection;
 
   const moveSelectionToFolder = useCallback(
@@ -144,6 +150,7 @@ function OrganizedInbox() {
               />
             }
           />
+          <SortPicker />
           {visibleChannels.length === 0 ? (
             <Text style={styles.emptyHint}>
               {channelFilter === 'unassigned'
@@ -157,11 +164,15 @@ function OrganizedInbox() {
                 channel={channel}
                 isSelected={selectedChannelIds.has(channel.channelId)}
                 onToggleSelection={selection.toggleChannel}
-                folderName={
-                  channelFilter === 'all'
-                    ? findFolderNameOfChannel(library, channel.channelId)
-                    : undefined
-                }
+                subtitle={describeChannelSubtitle({
+                  sortOrder,
+                  latestUploadAt: latestUploadAtByChannelId.get(channel.channelId),
+                  folderName:
+                    channelFilter === 'all'
+                      ? findFolderNameOfChannel(library, channel.channelId)
+                      : undefined,
+                  now,
+                })}
               />
             ))
           )}

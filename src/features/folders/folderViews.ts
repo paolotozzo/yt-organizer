@@ -1,17 +1,18 @@
-import { compareChannelsByTitle, type SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
+import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 
 import type { FolderLibrary, TopicFolder } from './folderLibrary';
 
 export type FolderContents = {
   /** Pinned channels, in the order they were pinned. */
   pinnedChannels: SubscribedChannel[];
-  /** The rest of the folder, sorted by title. */
+  /** The rest of the folder, in the order of `subscribedChannels`. */
   otherChannels: SubscribedChannel[];
 };
 
 /**
  * The channels of one folder, pinned ones first. Only channels the user still subscribes to
- * are returned, so a stale assignment never shows up as an empty row.
+ * are returned, so a stale assignment never shows up as an empty row. Pass the channels
+ * already sorted the way the user chose; that order is kept.
  */
 export function getFolderContents(
   library: FolderLibrary,
@@ -27,21 +28,21 @@ export function getFolderContents(
   const pinnedChannels = folder.pinnedChannelIds
     .map((channelId) => channelsById.get(channelId))
     .filter((channel): channel is SubscribedChannel => channel !== undefined);
-  const otherChannels = channelsInFolder
-    .filter((channel) => !pinnedChannelIds.has(channel.channelId))
-    .sort(compareChannelsByTitle);
+  const otherChannels = channelsInFolder.filter(
+    (channel) => !pinnedChannelIds.has(channel.channelId),
+  );
 
   return { pinnedChannels, otherChannels };
 }
 
-/** Subscribed channels that are in no folder yet, sorted by title. */
+/** Subscribed channels that are in no folder yet, in the order of `subscribedChannels`. */
 export function getUnassignedChannels(
   library: FolderLibrary,
   subscribedChannels: readonly SubscribedChannel[],
 ): SubscribedChannel[] {
-  return subscribedChannels
-    .filter((channel) => library.folderIdByChannelId[channel.channelId] === undefined)
-    .sort(compareChannelsByTitle);
+  return subscribedChannels.filter(
+    (channel) => library.folderIdByChannelId[channel.channelId] === undefined,
+  );
 }
 
 /** How many subscribed channels each folder holds, keyed by folder id. */

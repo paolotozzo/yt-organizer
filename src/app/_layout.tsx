@@ -1,18 +1,21 @@
 import { Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { colors, navigationTheme } from '@/theme/colors';
 
 export default function RootLayout() {
   return (
-    <ThemeProvider value={navigationTheme}>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <AuthenticatedNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <ThemeProvider value={navigationTheme}>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <AuthenticatedNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -37,7 +40,7 @@ function AuthenticatedNavigator() {
       }}
     >
       <Stack.Protected guard={isSignedIn}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(inbox)" />
       </Stack.Protected>
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="sign-in" />
@@ -55,6 +58,10 @@ function FullScreenLoader() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   loaderContainer: {
     flex: 1,
     alignItems: 'center',

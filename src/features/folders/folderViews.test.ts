@@ -13,7 +13,7 @@ import {
 import { countChannelsPerFolder, getFolderContents, getUnassignedChannels } from './folderViews';
 
 function buildChannel(channelId: string, title: string): SubscribedChannel {
-  return { channelId, title, description: '', thumbnailUrl: null };
+  return { channelId, title, description: '', thumbnailUrl: null, newItemCount: 0 };
 }
 
 const subscribedChannels = [
@@ -40,11 +40,11 @@ function titlesOf(channels: SubscribedChannel[]): string[] {
 }
 
 describe('getFolderContents', () => {
-  it('lists pinned channels first and the rest by title, ignoring case', () => {
+  it('lists pinned channels first and keeps the given order for the rest', () => {
     const contents = getFolderContents(libraryWithTechFolder, techFolder, subscribedChannels);
 
     expect(titlesOf(contents.pinnedChannels)).toEqual(['Mid Health']);
-    expect(titlesOf(contents.otherChannels)).toEqual(['alpha tech', 'Zeta Science']);
+    expect(titlesOf(contents.otherChannels)).toEqual(['Zeta Science', 'alpha tech']);
   });
 
   it('skips assigned channels the user no longer subscribes to', () => {

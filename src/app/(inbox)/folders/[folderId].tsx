@@ -12,9 +12,12 @@ import { FolderNameSheet } from '@/features/inbox/components/FolderNameSheet';
 import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
 import { formatChannelCount } from '@/features/inbox/components/FolderRow';
 import { SelectionActionBar } from '@/features/inbox/components/SelectionActionBar';
+import { SortPicker } from '@/features/inbox/components/SortPicker';
+import { describeChannelSubtitle } from '@/features/inbox/describeChannelSubtitle';
 import { useChannelSelection } from '@/features/inbox/useChannelSelection';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import { colors, spacing } from '@/theme/colors';
+import { useCurrentTime } from '@/utils/useCurrentTime';
 
 type ChannelSection = {
   title: string;
@@ -44,6 +47,8 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
   const {
     library,
     subscribedChannels,
+    sortOrder,
+    latestUploadAtByChannelId,
     renameFolder,
     deleteFolder,
     setFolderPinned,
@@ -53,6 +58,7 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
   } = useChannelInbox();
   const selection = useChannelSelection();
   const { selectedChannelIds, clearSelection } = selection;
+  const now = useCurrentTime();
   const [isFolderPickerVisible, setIsFolderPickerVisible] = useState(false);
   const [isRenameSheetVisible, setIsRenameSheetVisible] = useState(false);
 
@@ -123,6 +129,7 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
         keyExtractor={(channel) => channel.channelId}
         contentContainerStyle={styles.listContent}
         stickySectionHeadersEnabled={false}
+        ListHeaderComponent={channelCount > 0 ? <SortPicker /> : undefined}
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionTitle}>{section.title}</Text>
         )}
@@ -133,6 +140,11 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
             onToggleSelection={selection.toggleChannel}
             isPinned={section.isPinnedSection}
             onTogglePin={togglePin}
+            subtitle={describeChannelSubtitle({
+              sortOrder,
+              latestUploadAt: latestUploadAtByChannelId.get(channel.channelId),
+              now,
+            })}
           />
         )}
         ListEmptyComponent={

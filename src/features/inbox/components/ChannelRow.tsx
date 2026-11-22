@@ -14,8 +14,8 @@ type ChannelRowProps = {
   /** Passed inside a folder, where channels can be pinned to the top. */
   onTogglePin?: (channelId: string, isPinned: boolean) => void;
   isPinned?: boolean;
-  /** Name of the folder the channel is in, shown when listing channels from every folder. */
-  folderName?: string;
+  /** Extra line under the title, such as the folder or the latest upload time. */
+  subtitle?: string;
 };
 
 const AVATAR_SIZE = 44;
@@ -27,7 +27,7 @@ export const ChannelRow = memo(function ChannelRow({
   onToggleSelection,
   onTogglePin,
   isPinned = false,
-  folderName,
+  subtitle,
 }: ChannelRowProps) {
   return (
     <Pressable
@@ -47,12 +47,13 @@ export const ChannelRow = memo(function ChannelRow({
         <Text style={styles.title} numberOfLines={1}>
           {channel.title}
         </Text>
-        {folderName ? (
+        {subtitle ? (
           <Text style={styles.subtitle} numberOfLines={1}>
-            in {folderName}
+            {subtitle}
           </Text>
         ) : null}
       </View>
+      {channel.newItemCount > 0 ? <NewItemsBadge count={channel.newItemCount} /> : null}
       {onTogglePin ? (
         <IconButton
           iconName={isPinned ? 'pin' : 'pin-outline'}
@@ -64,6 +65,14 @@ export const ChannelRow = memo(function ChannelRow({
     </Pressable>
   );
 });
+
+function NewItemsBadge({ count }: { count: number }) {
+  return (
+    <View style={styles.newItemsBadge} accessibilityLabel={`${count} new`}>
+      <Text style={styles.newItemsText}>{count > 99 ? '99+' : count} new</Text>
+    </View>
+  );
+}
 
 function SelectionIndicator({ isSelected }: { isSelected: boolean }) {
   return (
@@ -103,5 +112,16 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textSecondary,
     fontSize: 12,
+  },
+  newItemsBadge: {
+    paddingHorizontal: spacing.small,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: colors.selectionBackground,
+  },
+  newItemsText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

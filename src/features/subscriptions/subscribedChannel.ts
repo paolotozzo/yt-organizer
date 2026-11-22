@@ -4,6 +4,8 @@ export type SubscribedChannel = {
   title: string;
   description: string;
   thumbnailUrl: string | null;
+  /** New uploads since the user last visited the channel, as YouTube counts them. */
+  newItemCount: number;
 };
 
 export function compareChannelsByTitle(

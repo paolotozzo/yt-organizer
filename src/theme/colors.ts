@@ -8,6 +8,10 @@ export const colors = {
   textSecondary: '#A1A1AA',
   accent: '#FF3B3B',
   accentPressed: '#D92F2F',
+  /** Background of selected rows: the accent at low opacity. */
+  selectionBackground: 'rgba(255, 59, 59, 0.14)',
+  pin: '#F5C451',
+  scrim: 'rgba(0, 0, 0, 0.6)',
   onAccent: '#FFFFFF',
   warning: '#F5A524',
   danger: '#FF6B6B',

@@ -2,8 +2,22 @@
 
 A React Native + Expo app to organize a YouTube channel and get more out of its content.
 
-Current step: the entry point. Users sign in with Google and grant every YouTube permission
-(the app is in Google's "Testing" mode; the scope list will be trimmed before publishing).
+Users sign in with Google and grant every YouTube permission (the app is in Google's
+"Testing" mode; the scope list will be trimmed before publishing).
+
+## Features
+
+**Organized inbox.** The home screen lists the user's YouTube subscriptions
+(Data API `subscriptions.list`, `mine=true`) under topic folders they create:
+
+- Create, rename and delete folders. Deleting a folder only unassigns its channels.
+- Select several channels, then tap a folder (or "Move to…") to file them.
+- Drag folders to reorder them (long press the row, or touch the handle).
+- Pin folders to keep them on top, and pin channels to the top of a folder.
+- Channels in no folder stay visible under "Unassigned"; pull down to refresh.
+
+YouTube has no folder API, so folders are stored **on the device** (AsyncStorage, one
+library per Google account). They are not synced between devices yet.
 
 ## Requirements
 
@@ -79,9 +93,13 @@ SHA-1 or package mismatch.
 
 ```
 src/
-  app/                 Expo Router screens (sign-in, home) and the root layout
+  app/                 Expo Router screens and layouts
+    (inbox)/           Signed-in screens: the inbox and a folder's contents
   components/          Shared UI components
   config/              Runtime access to app config values
   features/auth/       Google sign-in, session state, YouTube scopes
+  features/subscriptions/  Fetching the user's subscriptions from the YouTube Data API
+  features/folders/    Folder library rules (pure, unit tested) and on-device storage
+  features/inbox/      Inbox state provider and its UI components
   theme/               Dark color palette and spacing
 ```

@@ -61,6 +61,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-system-ui',
+    // Native modules installed ahead of the features that will use them, so new features
+    // only need Metro reloads instead of new development builds.
+    'expo-video',
+    'expo-sharing',
+    'expo-web-browser',
+    'expo-sqlite',
+    'expo-secure-store',
+    'expo-background-task',
+    'expo-localization',
+    'expo-notifications',
     [
       '@react-native-google-signin/google-signin',
       { iosUrlScheme: buildGoogleIosUrlScheme(GOOGLE_OAUTH_CLIENT_IDS.iosClientId) },

@@ -36,6 +36,7 @@ function buildExtraConfig(): ExpoConfig['extra'] {
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Channel Desk',
+  owner: 'paolo.tozzo',
   slug: 'yt-organizer',
   scheme: 'ytorganizer',
   version: '1.0.0',

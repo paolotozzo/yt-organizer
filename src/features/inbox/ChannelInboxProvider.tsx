@@ -14,6 +14,10 @@ import {
   useSubscribedChannels,
   type SubscribedChannelsState,
 } from '@/features/subscriptions/useSubscribedChannels';
+import {
+  clearCachedYoutubeData,
+  deleteOutdatedCacheEntries,
+} from '@/features/youtube/youtubeDataCache';
 
 /** Creating or renaming returns the validation, so dialogs can show why a name was refused. */
 type FolderNameResult = FolderNameValidation & { folderId?: string };
@@ -28,7 +32,10 @@ type ChannelInboxContextValue = {
   sortErrorMessage: string | null;
   latestUploadAtByChannelId: ReadonlyMap<string, number | null>;
   isRefreshing: boolean;
+  /** Pull to refresh: asks YouTube again instead of using cached data. */
   refreshSubscriptions: () => Promise<void>;
+  /** Deletes all cached YouTube data (never the folders) and reloads it. */
+  clearCachedDataAndReload: () => Promise<void>;
   isLibraryLoaded: boolean;
   library: FolderLibrary;
   createFolder: (proposedName: string) => FolderNameResult;
@@ -57,7 +64,7 @@ const NO_CHANNELS: SubscribedChannel[] = [];
  */
 export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderProps) {
   const { getAccessToken } = useAuth();
-  const subscriptions = useSubscribedChannels(getAccessToken);
+  const subscriptions = useSubscribedChannels(userId, getAccessToken);
   const { library, isLibraryLoaded, dispatch } = usePersistedFolderLibrary(userId);
   const channelsInApiOrder =
     subscriptions.state.status === 'loaded' ? subscriptions.state.channels : NO_CHANNELS;
@@ -69,6 +76,16 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
     refreshSortData();
     await refreshChannelList();
   }, [refreshChannelList, refreshSortData]);
+
+  const clearCachedDataAndReload = useCallback(async () => {
+    await clearCachedYoutubeData(userId);
+    refreshSortData({ discardCachedData: true });
+    await refreshChannelList();
+  }, [refreshChannelList, refreshSortData, userId]);
+
+  useEffect(() => {
+    deleteOutdatedCacheEntries();
+  }, []);
 
   useEffect(() => {
     if (isLibraryLoaded && subscriptions.state.status === 'loaded') {
@@ -135,6 +152,7 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
       latestUploadAtByChannelId: sorting.latestUploadAtByChannelId,
       isRefreshing: subscriptions.isRefreshing,
       refreshSubscriptions,
+      clearCachedDataAndReload,
       isLibraryLoaded,
       library,
       createFolder,
@@ -145,6 +163,7 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
       subscriptions.state,
       subscriptions.isRefreshing,
       refreshSubscriptions,
+      clearCachedDataAndReload,
       sorting,
       isLibraryLoaded,
       library,

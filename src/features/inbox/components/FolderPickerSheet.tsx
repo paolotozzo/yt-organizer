@@ -1,11 +1,11 @@
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
+import { SheetOption } from '@/components/SheetOption';
 import type { FolderNameValidation, TopicFolder } from '@/features/folders/folderLibrary';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
-import { colors, spacing } from '@/theme/colors';
+import { spacing } from '@/theme/colors';
 
 import { FolderNameForm } from './FolderNameForm';
 
@@ -62,10 +62,10 @@ export function FolderPickerSheet({
         />
       ) : (
         <ScrollView contentContainerStyle={styles.options}>
-          <PickerOption
+          <SheetOption
             iconName="folder-plus-outline"
             label="New folder…"
-            isHighlighted
+            tone="accent"
             onPress={() => setIsCreatingFolder(true)}
           />
           {destinationFolders.map((folder) => (
@@ -85,7 +85,7 @@ function FolderOption({
   onPress: (folderId: string) => void;
 }) {
   return (
-    <PickerOption
+    <SheetOption
       iconName={folder.isPinned ? 'pin' : 'folder-outline'}
       label={folder.name}
       onPress={() => onPress(folder.id)}
@@ -93,49 +93,8 @@ function FolderOption({
   );
 }
 
-type PickerOptionProps = {
-  iconName: 'folder-plus-outline' | 'folder-outline' | 'pin';
-  label: string;
-  isHighlighted?: boolean;
-  onPress: () => void;
-};
-
-function PickerOption({ iconName, label, isHighlighted = false, onPress }: PickerOptionProps) {
-  const contentColor = isHighlighted ? colors.accent : colors.textPrimary;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [styles.option, pressed && styles.pressedOption]}
-    >
-      <MaterialCommunityIcons name={iconName} size={22} color={contentColor} />
-      <Text style={[styles.optionLabel, { color: contentColor }]} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   options: {
     gap: spacing.extraSmall,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.medium,
-    minHeight: 52,
-    paddingHorizontal: spacing.medium,
-    borderRadius: 12,
-  },
-  pressedOption: {
-    backgroundColor: colors.surfaceBorder,
-  },
-  optionLabel: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
   },
 });

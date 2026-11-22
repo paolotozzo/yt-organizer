@@ -31,10 +31,8 @@ export type ChannelSortData = {
   latestUploadAtByChannelId: ReadonlyMap<string, number | null>;
 };
 
-export function buildRankByChannelId(
-  channelsInApiOrder: readonly SubscribedChannel[],
-): Map<string, number> {
-  return new Map(channelsInApiOrder.map((channel, index) => [channel.channelId, index]));
+export function buildRankByChannelId(channelIdsInApiOrder: readonly string[]): Map<string, number> {
+  return new Map(channelIdsInApiOrder.map((channelId, index) => [channelId, index]));
 }
 
 /** Returns a new array sorted by `sortOrder`. Ties, and channels without data, go by title. */

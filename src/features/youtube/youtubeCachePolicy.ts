@@ -1,0 +1,23 @@
+const HOUR = 60 * 60 * 1000;
+
+/**
+ * How long cached YouTube data is used before the app asks YouTube again. Pull to refresh
+ * always fetches fresh data. Cached data is shown right away even when older; the newer
+ * copy replaces it once it arrives.
+ */
+export const youtubeCacheMaxAge = {
+  /** The subscription list (also carries the "new items" counts). */
+  subscriptions: 6 * HOUR,
+  /** YouTube's relevance and unread orders. */
+  subscriptionRankings: 6 * HOUR,
+  /** Each channel's newest upload: 1 quota unit per channel, so checked less often. */
+  latestUploads: 6 * HOUR,
+  /** On pull to refresh, latest uploads newer than this are not checked again. */
+  latestUploadsOnRefresh: HOUR / 4,
+} as const;
+
+export const youtubeCacheEntryNames = {
+  subscriptions: 'subscriptions',
+  subscriptionRanking: (order: string) => `subscriptionRanking:${order}`,
+  latestUploads: 'latestUploads',
+} as const;

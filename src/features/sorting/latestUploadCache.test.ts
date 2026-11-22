@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   findChannelsNeedingCheck,
-  parseStoredLatestUploadCache,
+  isLatestUploadCache,
   updateLatestUploadCache,
   type LatestUploadCache,
 } from './latestUploadCache';
@@ -36,23 +36,16 @@ describe('updateLatestUploadCache', () => {
   });
 });
 
-describe('parseStoredLatestUploadCache', () => {
-  it('round-trips valid data and drops malformed entries', () => {
-    const stored = JSON.stringify({
-      ...cache,
-      broken: { checkedAt: 'yesterday' },
-      noUploads: { checkedAt: 1, latestUploadAt: null },
-    });
-
-    expect(parseStoredLatestUploadCache(stored)).toEqual({
-      ...cache,
-      noUploads: { checkedAt: 1, latestUploadAt: null },
-    });
+describe('isLatestUploadCache', () => {
+  it('accepts valid checks, including channels without uploads', () => {
+    expect(isLatestUploadCache({ ...cache, noUploads: { checkedAt: 1, latestUploadAt: null } })).toBe(
+      true,
+    );
   });
 
-  it('returns an empty cache for missing or corrupt data', () => {
-    expect(parseStoredLatestUploadCache(null)).toEqual({});
-    expect(parseStoredLatestUploadCache('[1,2]')).toEqual({});
-    expect(parseStoredLatestUploadCache('{oops')).toEqual({});
+  it('rejects malformed data', () => {
+    expect(isLatestUploadCache({ broken: { checkedAt: 'yesterday' } })).toBe(false);
+    expect(isLatestUploadCache([1, 2])).toBe(false);
+    expect(isLatestUploadCache(null)).toBe(false);
   });
 });

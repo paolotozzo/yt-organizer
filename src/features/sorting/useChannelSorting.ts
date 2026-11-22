@@ -3,6 +3,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import { fetchAllSubscribedChannels } from '@/features/subscriptions/youtubeSubscriptionsApi';
 import { YoutubeApiError } from '@/features/youtube/youtubeApiClient';
+import { youtubeCacheEntryNames, youtubeCacheMaxAge } from '@/features/youtube/youtubeCachePolicy';
+import {
+  loadThroughCache,
+  readCachedEntry,
+  writeCachedEntry,
+} from '@/features/youtube/youtubeDataCache';
 
 import {
   buildRankByChannelId,
@@ -13,23 +19,15 @@ import {
 } from './channelSorting';
 import {
   findChannelsNeedingCheck,
+  isLatestUploadCache,
   updateLatestUploadCache,
   type LatestUploadCache,
 } from './latestUploadCache';
 import { checkLatestUploads } from './latestUploadsApi';
-import {
-  loadLatestUploadCache,
-  loadSortOrder,
-  saveLatestUploadCache,
-  saveSortOrder,
-} from './sortingStorage';
+import { loadSortOrder, saveSortOrder } from './sortingStorage';
 
 const DEFAULT_SORT_ORDER: ChannelSortOrder = 'relevance';
 
-/** Latest uploads are re-checked after this long: 1 quota unit per channel per check. */
-const LATEST_UPLOAD_MAX_AGE_MILLISECONDS = 6 * 60 * 60 * 1000;
-/** A pull to refresh re-checks anything older than this. */
-const LATEST_UPLOAD_REFRESH_MAX_AGE_MILLISECONDS = 15 * 60 * 1000;
 
 export type SortProgress =
   | { status: 'idle' }
@@ -45,8 +43,11 @@ export type ChannelSorting = {
   progress: SortProgress;
   /** Why the last ranking or upload check failed, if it did. */
   errorMessage: string | null;
-  /** Reloads YouTube's rankings and re-checks recent uploads. */
-  refreshSortData: () => void;
+  /**
+   * Reloads YouTube's rankings and re-checks recent uploads. With `discardCachedData`, also
+   * forgets every latest upload already checked (after the cache was cleared).
+   */
+  refreshSortData: (options?: { discardCachedData?: boolean }) => void;
 };
 
 type RankByChannelIdByOrder = ChannelSortData['rankByChannelIdByOrder'];
@@ -66,8 +67,12 @@ export function useChannelSorting(
   const [latestUploadCache, setLatestUploadCache] = useState<LatestUploadCache | null>(null);
   const [progress, setProgress] = useState<SortProgress>({ status: 'idle' });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [latestUploadMaxAge, setLatestUploadMaxAge] = useState(LATEST_UPLOAD_MAX_AGE_MILLISECONDS);
+  const [latestUploadMaxAge, setLatestUploadMaxAge] = useState<number>(
+    youtubeCacheMaxAge.latestUploads,
+  );
   const isLoadingSortDataRef = useRef(false);
+  /** Rankings to fetch from YouTube even if cached, set by a pull to refresh. */
+  const rankingsToRefetchRef = useRef(new Set<RankedSortOrder>());
 
   useStoredSortPreferences(userId, setSortOrderState, setLatestUploadCache);
 
@@ -102,7 +107,8 @@ export function useChannelSorting(
       try {
         if (isRankedSortOrder(sortOrder) && !rankByChannelIdByOrder[sortOrder]) {
           setProgress({ status: 'loadingRanking' });
-          const rankByChannelId = await fetchRanking(getAccessToken, sortOrder);
+          const forceRefresh = rankingsToRefetchRef.current.delete(sortOrder);
+          const rankByChannelId = await loadRanking(userId, getAccessToken, sortOrder, forceRefresh);
           setRankByChannelIdByOrder((current) => ({ ...current, [sortOrder]: rankByChannelId }));
         }
 
@@ -123,16 +129,14 @@ export function useChannelSorting(
               setProgress,
             );
             setLatestUploadCache(updatedCache.cache);
-            saveLatestUploadCache(userId, updatedCache.cache).catch((error: unknown) =>
-              console.warn('Could not save the latest upload cache', error),
-            );
+            writeCachedEntry(userId, youtubeCacheEntryNames.latestUploads, updatedCache.cache);
 
             if (updatedCache.stoppedBecause) {
               setErrorMessage(updatedCache.stoppedBecause.message);
             }
           }
 
-          setLatestUploadMaxAge(LATEST_UPLOAD_MAX_AGE_MILLISECONDS);
+          setLatestUploadMaxAge(youtubeCacheMaxAge.latestUploads);
         }
       } catch (error) {
         setErrorMessage(describeError(error));
@@ -156,10 +160,17 @@ export function useChannelSorting(
     userId,
   ]);
 
-  const refreshSortData = useCallback(() => {
+  const refreshSortData = useCallback((options?: { discardCachedData?: boolean }) => {
+    rankingsToRefetchRef.current = new Set(['relevance', 'unread']);
     setRankByChannelIdByOrder({});
-    setLatestUploadMaxAge(LATEST_UPLOAD_REFRESH_MAX_AGE_MILLISECONDS);
     setErrorMessage(null);
+
+    if (options?.discardCachedData) {
+      setLatestUploadCache({});
+      setLatestUploadMaxAge(youtubeCacheMaxAge.latestUploads);
+    } else {
+      setLatestUploadMaxAge(youtubeCacheMaxAge.latestUploadsOnRefresh);
+    }
   }, []);
 
   const latestUploadAtByChannelId = useMemo(
@@ -215,7 +226,9 @@ function useStoredSortPreferences(
     async function restorePreferences() {
       const [storedSortOrder, storedCache] = await Promise.all([
         loadSortOrder(userId).catch(() => null),
-        loadLatestUploadCache(userId).catch((): LatestUploadCache => ({})),
+        readCachedEntry(userId, youtubeCacheEntryNames.latestUploads, isLatestUploadCache).then(
+          (entry) => entry?.value ?? {},
+        ),
       ]);
 
       if (isMounted) {
@@ -239,13 +252,31 @@ function isRankedSortOrder(sortOrder: ChannelSortOrder): sortOrder is RankedSort
   return sortOrder === 'relevance' || sortOrder === 'unread';
 }
 
-async function fetchRanking(
+/** YouTube's order for `sortOrder`, cached as the list of channel ids in that order. */
+async function loadRanking(
+  userId: string,
   getAccessToken: () => Promise<string>,
   sortOrder: RankedSortOrder,
+  forceRefresh: boolean,
 ): Promise<Map<string, number>> {
-  const accessToken = await getAccessToken();
-  const channelsInApiOrder = await fetchAllSubscribedChannels(accessToken, sortOrder);
-  return buildRankByChannelId(channelsInApiOrder);
+  const channelIdsInApiOrder = await loadThroughCache({
+    userId,
+    entryName: youtubeCacheEntryNames.subscriptionRanking(sortOrder),
+    maxAgeMilliseconds: youtubeCacheMaxAge.subscriptionRankings,
+    forceRefresh,
+    isValidValue: isStringList,
+    fetchFreshValue: async () => {
+      const accessToken = await getAccessToken();
+      const channelsInApiOrder = await fetchAllSubscribedChannels(accessToken, sortOrder);
+      return channelsInApiOrder.map((channel) => channel.channelId);
+    },
+  });
+
+  return buildRankByChannelId(channelIdsInApiOrder);
+}
+
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
 async function refreshLatestUploads(

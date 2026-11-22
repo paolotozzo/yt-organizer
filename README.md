@@ -15,6 +15,27 @@ Users sign in with Google and grant every YouTube permission (the app is in Goog
 - Drag folders to reorder them (long press the row, or touch the handle).
 - Pin folders to keep them on top, and pin channels to the top of a folder.
 - Channels in no folder stay visible under "Unassigned"; pull down to refresh.
+- Sort channels by **Relevance** or **Unread** (YouTube's own orders from `subscriptions.list`),
+  **Latest upload** (each channel's uploads playlist via `playlistItems.list`, 1 quota unit per
+  channel), or **A to Z**. Rows show YouTube's "new items" count.
+
+## Caching YouTube data
+
+Data from YouTube is cached on the device (AsyncStorage, per Google account), so the app opens
+instantly and spends little quota. Cache ages are set in `src/features/youtube/youtubeCachePolicy.ts`:
+
+| Data | Reused for |
+| --- | --- |
+| Subscription list and "new" counts | 6 hours (shown at once even when older, then replaced) |
+| Relevance and unread rankings | 6 hours |
+| Latest upload per channel | 6 hours (15 minutes on pull to refresh) |
+
+- **Pull to refresh** always asks YouTube again.
+- **Clear cached data** (tap your avatar) deletes all cached YouTube data and reloads it.
+  Folders and the sort choice are kept.
+- **Changing a data shape or the requested fields?** Bump `YOUTUBE_CACHE_SCHEMA_VERSION` in
+  `src/features/youtube/youtubeDataCacheKeys.ts`. On the next launch every entry from an older
+  version is deleted, so stale shapes are never read.
 
 YouTube has no folder API, so folders are stored **on the device** (AsyncStorage, one
 library per Google account). They are not synced between devices yet.
@@ -100,6 +121,8 @@ src/
   features/auth/       Google sign-in, session state, YouTube scopes
   features/subscriptions/  Fetching the user's subscriptions from the YouTube Data API
   features/folders/    Folder library rules (pure, unit tested) and on-device storage
+  features/sorting/    Channel sort orders and latest-upload checks
+  features/youtube/    Shared YouTube Data API client and the versioned on-device cache
   features/inbox/      Inbox state provider and its UI components
   theme/               Dark color palette and spacing
 ```

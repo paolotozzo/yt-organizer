@@ -36,7 +36,7 @@ describe('sortChannels', () => {
   it('follows the rank YouTube returned for relevance', () => {
     const sortData: ChannelSortData = {
       ...noSortData,
-      rankByChannelIdByOrder: { relevance: buildRankByChannelId([charlie, alpha, delta, bravo]) },
+      rankByChannelIdByOrder: { relevance: buildRankByChannelId(['charlie', 'alpha', 'delta', 'bravo']) },
     };
 
     expect(idsOf(sortChannels(channels, 'relevance', sortData))).toEqual([
@@ -50,7 +50,7 @@ describe('sortChannels', () => {
   it('puts unranked channels last, by title', () => {
     const sortData: ChannelSortData = {
       ...noSortData,
-      rankByChannelIdByOrder: { unread: buildRankByChannelId([delta]) },
+      rankByChannelIdByOrder: { unread: buildRankByChannelId(['delta']) },
     };
 
     expect(idsOf(sortChannels(channels, 'unread', sortData))).toEqual([

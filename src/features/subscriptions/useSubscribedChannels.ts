@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { YoutubeApiError } from '@/features/youtube/youtubeApiClient';
+import { youtubeCacheEntryNames, youtubeCacheMaxAge } from '@/features/youtube/youtubeCachePolicy';
+import { readCachedEntry, writeCachedEntry } from '@/features/youtube/youtubeDataCache';
+import { isCacheEntryFresh } from '@/features/youtube/youtubeDataCacheKeys';
 
-import type { SubscribedChannel } from './subscribedChannel';
+import { isSubscribedChannelList, type SubscribedChannel } from './subscribedChannel';
 import { fetchAllSubscribedChannels } from './youtubeSubscriptionsApi';
 
 export type SubscribedChannelsState =
@@ -13,24 +16,28 @@ export type SubscribedChannelsState =
 type UseSubscribedChannelsResult = {
   state: SubscribedChannelsState;
   isRefreshing: boolean;
+  /** Fetches the list from YouTube, ignoring the cache. */
   refresh: () => Promise<void>;
 };
 
 /**
- * Loads the user's subscriptions once on mount. `refresh` reloads them while keeping the
- * current list on screen, and only replaces it once the new list has fully arrived.
+ * Shows the cached subscriptions right away, and only asks YouTube when there is no cached
+ * list or it is older than `youtubeCacheMaxAge.subscriptions`. While a newer list loads the
+ * current one stays on screen.
  */
 export function useSubscribedChannels(
+  userId: string,
   getAccessToken: () => Promise<string>,
 ): UseSubscribedChannelsResult {
   const [state, setState] = useState<SubscribedChannelsState>({ status: 'loading' });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isMountedRef = useRef(true);
 
-  const loadChannels = useCallback(async () => {
+  const fetchAndCacheChannels = useCallback(async () => {
     try {
       const accessToken = await getAccessToken();
       const channels = await fetchAllSubscribedChannels(accessToken, 'alphabetical');
+      await writeCachedEntry(userId, youtubeCacheEntryNames.subscriptions, channels);
 
       if (isMountedRef.current) {
         setState({ status: 'loaded', channels });
@@ -47,16 +54,37 @@ export function useSubscribedChannels(
 
       console.warn('Could not load YouTube subscriptions', error);
     }
-  }, [getAccessToken]);
+  }, [getAccessToken, userId]);
 
   useEffect(() => {
     isMountedRef.current = true;
-    loadChannels();
+
+    async function loadCachedThenFreshChannels() {
+      const cachedEntry = await readCachedEntry(
+        userId,
+        youtubeCacheEntryNames.subscriptions,
+        isSubscribedChannelList,
+      );
+
+      if (cachedEntry && isMountedRef.current) {
+        setState({ status: 'loaded', channels: cachedEntry.value });
+      }
+
+      const isCacheFresh =
+        cachedEntry !== null &&
+        isCacheEntryFresh(cachedEntry, Date.now(), youtubeCacheMaxAge.subscriptions);
+
+      if (!isCacheFresh) {
+        await fetchAndCacheChannels();
+      }
+    }
+
+    loadCachedThenFreshChannels();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, [loadChannels]);
+  }, [fetchAndCacheChannels, userId]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -65,13 +93,13 @@ export function useSubscribedChannels(
     );
 
     try {
-      await loadChannels();
+      await fetchAndCacheChannels();
     } finally {
       if (isMountedRef.current) {
         setIsRefreshing(false);
       }
     }
-  }, [loadChannels]);
+  }, [fetchAndCacheChannels]);
 
   return { state, isRefreshing, refresh };
 }

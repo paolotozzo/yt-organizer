@@ -40,26 +40,14 @@ export function updateLatestUploadCache(
   );
 }
 
-export function parseStoredLatestUploadCache(serializedCache: string | null): LatestUploadCache {
-  if (!serializedCache) {
-    return {};
-  }
-
-  try {
-    const storedValue: unknown = JSON.parse(serializedCache);
-
-    if (typeof storedValue !== 'object' || storedValue === null || Array.isArray(storedValue)) {
-      return {};
-    }
-
-    return Object.fromEntries(
-      Object.entries(storedValue).filter((entry): entry is [string, LatestUploadCheck] =>
-        isLatestUploadCheck(entry[1]),
-      ),
-    );
-  } catch {
-    return {};
-  }
+/** Checks data read back from the cache before trusting it. */
+export function isLatestUploadCache(value: unknown): value is LatestUploadCache {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every(isLatestUploadCheck)
+  );
 }
 
 function isLatestUploadCheck(value: unknown): value is LatestUploadCheck {

@@ -46,7 +46,8 @@ export function YoutubePlaylistsSection({ videoId }: { videoId: string }) {
         playlists.state.value.map((playlist) => (
           <SaveTargetOption
             key={playlist.playlistId}
-            iconName={playlist.privacyStatus === 'private' ? 'lock-outline' : 'youtube'}
+            // A generic icon: YouTube's logo may only be used as its branding rules allow.
+            iconName={playlist.privacyStatus === 'private' ? 'lock-outline' : 'playlist-play'}
             title={playlist.title}
             details={describePlaylist(playlist)}
             status={saveStatusByPlaylistId.get(playlist.playlistId) ?? 'notSaved'}

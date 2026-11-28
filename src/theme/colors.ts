@@ -6,13 +6,20 @@ export const colors = {
   surfaceBorder: '#2A2A33',
   textPrimary: '#F5F5F7',
   textSecondary: '#A1A1AA',
-  accent: '#FF3B3B',
-  accentPressed: '#D92F2F',
+  /** Warm orange, deliberately clear of YouTube's red so the app never imitates its look. */
+  accent: '#FF8A3D',
+  accentPressed: '#E8742A',
   /** Background of selected rows: the accent at low opacity. */
-  selectionBackground: 'rgba(255, 59, 59, 0.14)',
+  selectionBackground: 'rgba(255, 138, 61, 0.14)',
   pin: '#F5C451',
   scrim: 'rgba(0, 0, 0, 0.6)',
-  onAccent: '#FFFFFF',
+  /** Behind Android's navigation buttons: the background, nearly opaque. */
+  navigationBarScrim: 'rgba(15, 15, 18, 0.92)',
+  /** Dark text and icons on the accent, which is too light for white text. */
+  onAccent: '#2B1205',
+  /** Text on dark overlays drawn over thumbnails, such as the video length. */
+  onMedia: '#FFFFFF',
+  mediaOverlay: 'rgba(0, 0, 0, 0.8)',
   warning: '#F5A524',
   danger: '#FF6B6B',
 } as const;

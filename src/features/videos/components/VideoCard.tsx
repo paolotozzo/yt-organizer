@@ -88,7 +88,7 @@ function ThumbnailBadge({ video }: { video: ChannelVideo }) {
   if (video.liveStatus === 'live') {
     return (
       <View style={[styles.badge, styles.liveBadge]}>
-        <Text style={styles.badgeText}>LIVE</Text>
+        <Text style={[styles.badgeText, styles.liveBadgeText]}>LIVE</Text>
       </View>
     );
   }
@@ -158,13 +158,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: colors.mediaOverlay,
   },
   liveBadge: {
     backgroundColor: colors.accent,
   },
-  badgeText: {
+  liveBadgeText: {
     color: colors.onAccent,
+  },
+  badgeText: {
+    color: colors.onMedia,
     fontSize: 12,
     fontWeight: '700',
   },

@@ -6,11 +6,13 @@ import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
+import { IconButton } from '@/components/IconButton';
 import { ScreenTopBar } from '@/components/ScreenTopBar';
 import { StatusView } from '@/components/StatusView';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { findFolder } from '@/features/folders/folderLibrary';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
+import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
 import { SaveVideoSheet } from '@/features/videos/components/SaveVideoSheet';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import { buildVideoUrl, type ChannelVideo } from '@/features/videos/channelVideo';
@@ -23,12 +25,12 @@ const TOP_BAR_AVATAR_SIZE = 32;
 
 /**
  * A channel's uploads, newest first. Tapping a video opens it in the YouTube app; its save
- * button adds it to a playlist.
+ * button adds it to a list or playlist. The folder button files the channel under a topic.
  */
 export default function ChannelVideosScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
   const { session, getAccessToken } = useAuth();
-  const { subscribedChannels, library } = useChannelInbox();
+  const { subscribedChannels, library, moveChannelsToFolder } = useChannelInbox();
   const channel = subscribedChannels.find((candidate) => candidate.channelId === channelId);
   const folderId = library.folderIdByChannelId[channelId];
   const folderName = folderId ? findFolder(library, folderId)?.name : undefined;
@@ -43,6 +45,12 @@ export default function ChannelVideosScreen() {
   );
 
   const [videoToSave, setVideoToSave] = useState<ChannelVideo | null>(null);
+  const [isFolderPickerVisible, setIsFolderPickerVisible] = useState(false);
+
+  function moveChannelToFolder(destinationFolderId: string) {
+    moveChannelsToFolder([channelId], destinationFolderId);
+    setIsFolderPickerVisible(false);
+  }
 
   const openVideo = useCallback((video: ChannelVideo) => {
     Linking.openURL(buildVideoUrl(video.videoId));
@@ -62,7 +70,14 @@ export default function ChannelVideosScreen() {
         title={channelSummary.title}
         subtitle={folderName ? `in ${folderName}` : 'Not in a folder'}
         leading={<ChannelAvatar channel={channel} />}
-      />
+      >
+        <IconButton
+          iconName={folderId ? 'folder-move-outline' : 'folder-plus-outline'}
+          color={colors.accent}
+          accessibilityLabel={folderName ? 'Move to another folder' : 'Add to a folder'}
+          onPress={() => setIsFolderPickerVisible(true)}
+        />
+      </ScreenTopBar>
 
       {videos.state.status === 'loading' ? (
         <StatusView status="loading" message="Loading videos…" />
@@ -109,6 +124,14 @@ export default function ChannelVideosScreen() {
         />
       )}
 
+      <FolderPickerSheet
+        isVisible={isFolderPickerVisible}
+        selectedCount={1}
+        currentFolderId={folderId}
+        title={folderName ? `Move ${channelTitle} to` : `Add ${channelTitle} to`}
+        onFolderPicked={moveChannelToFolder}
+        onClose={() => setIsFolderPickerVisible(false)}
+      />
       <SaveVideoSheet
         video={videoToSave}
         channel={videoChannel}

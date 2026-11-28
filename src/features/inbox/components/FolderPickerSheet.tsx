@@ -17,6 +17,8 @@ type FolderPickerSheetProps = {
   selectedCount: number;
   /** The folder the channels are in now, which is left out of the list. */
   currentFolderId?: string;
+  /** Replaces the default "Move 2 channels to", e.g. with the channel's name. */
+  title?: string;
   onFolderPicked: (folderId: string) => void;
   onClose: () => void;
 };
@@ -26,6 +28,7 @@ export function FolderPickerSheet({
   isVisible,
   selectedCount,
   currentFolderId,
+  title,
   onFolderPicked,
   onClose,
 }: FolderPickerSheetProps) {
@@ -54,7 +57,7 @@ export function FolderPickerSheet({
   return (
     <BottomSheet
       isVisible={isVisible}
-      title={isCreatingFolder ? 'New folder' : `Move ${channelsLabel} to`}
+      title={isCreatingFolder ? 'New folder' : (title ?? `Move ${channelsLabel} to`)}
       onClose={close}
     >
       {isCreatingFolder ? (

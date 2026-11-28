@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 
 import { BottomSheet } from '@/components/BottomSheet';
+import { NameForm } from '@/components/NameForm';
 import { SheetOption } from '@/components/SheetOption';
-import type { FolderNameValidation, TopicFolder } from '@/features/folders/folderLibrary';
+import {
+  FOLDER_NAME_FIELD,
+  type FolderNameValidation,
+  type TopicFolder,
+} from '@/features/folders/folderLibrary';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
 import { spacing } from '@/theme/colors';
-
-import { FolderNameForm } from './FolderNameForm';
 
 type FolderPickerSheetProps = {
   isVisible: boolean;
@@ -55,7 +58,8 @@ export function FolderPickerSheet({
       onClose={close}
     >
       {isCreatingFolder ? (
-        <FolderNameForm
+        <NameForm
+          {...FOLDER_NAME_FIELD}
           submitLabel="Create and move"
           onSubmit={createFolderAndPickIt}
           onCancel={() => setIsCreatingFolder(false)}

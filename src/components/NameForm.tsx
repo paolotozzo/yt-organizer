@@ -2,24 +2,34 @@ import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/PrimaryButton';
-import { MAX_FOLDER_NAME_LENGTH, type FolderNameValidation } from '@/features/folders/folderLibrary';
 import { colors, spacing } from '@/theme/colors';
 
-type FolderNameFormProps = {
+/** Whether a proposed name was accepted, and if not, why, in words for the user. */
+export type NameValidationResult = { isValid: true } | { isValid: false; problem: string };
+
+export type NameFormProps = {
   initialName?: string;
   submitLabel: string;
+  /** Example names, e.g. "e.g. Tech, Geopolitics, Health". */
+  placeholder: string;
+  /** What is being named, read out by screen readers, e.g. "Folder name". */
+  accessibilityLabel: string;
+  maxLength: number;
   /** Returns the validation so the form can explain why a name was refused. */
-  onSubmit: (proposedName: string) => FolderNameValidation;
+  onSubmit: (proposedName: string) => NameValidationResult;
   onCancel: () => void;
 };
 
-/** Text field plus buttons to name a new folder or rename an existing one. */
-export function FolderNameForm({
+/** Text field plus buttons to name something new, such as a folder or a list, or rename it. */
+export function NameForm({
   initialName = '',
   submitLabel,
+  placeholder,
+  accessibilityLabel,
+  maxLength,
   onSubmit,
   onCancel,
-}: FolderNameFormProps) {
+}: NameFormProps) {
   const [proposedName, setProposedName] = useState(initialName);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -37,15 +47,15 @@ export function FolderNameForm({
           setProblem(null);
         }}
         onSubmitEditing={submit}
-        placeholder="e.g. Tech, Geopolitics, Health"
+        placeholder={placeholder}
         placeholderTextColor={colors.textSecondary}
-        maxLength={MAX_FOLDER_NAME_LENGTH}
+        maxLength={maxLength}
         autoFocus
         autoCapitalize="words"
         returnKeyType="done"
         selectionColor={colors.accent}
         style={styles.input}
-        accessibilityLabel="Folder name"
+        accessibilityLabel={accessibilityLabel}
       />
       {problem ? <Text style={styles.problem}>{problem}</Text> : null}
       <View style={styles.buttons}>

@@ -11,10 +11,10 @@ import { StatusView } from '@/components/StatusView';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { findFolder } from '@/features/folders/folderLibrary';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
-import { SaveVideoSheet } from '@/features/playlists/components/SaveVideoSheet';
+import { SaveVideoSheet } from '@/features/videos/components/SaveVideoSheet';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import { buildVideoUrl, type ChannelVideo } from '@/features/videos/channelVideo';
-import { VideoCard } from '@/features/videos/components/VideoCard';
+import { VideoCard, type VideoCardAction } from '@/features/videos/components/VideoCard';
 import { useChannelVideos } from '@/features/videos/useChannelVideos';
 import { colors, spacing } from '@/theme/colors';
 import { useCurrentTime } from '@/utils/useCurrentTime';
@@ -47,6 +47,14 @@ export default function ChannelVideosScreen() {
   const openVideo = useCallback((video: ChannelVideo) => {
     Linking.openURL(buildVideoUrl(video.videoId));
   }, []);
+  const saveAction = useMemo<VideoCardAction>(
+    () => ({ iconName: 'playlist-plus', label: 'Save', onPress: setVideoToSave }),
+    [],
+  );
+  const videoChannel = useMemo(
+    () => ({ channelId, title: channelTitle, thumbnailUrl: channelThumbnailUrl }),
+    [channelId, channelTitle, channelThumbnailUrl],
+  );
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -74,7 +82,7 @@ export default function ChannelVideosScreen() {
               channel={channelSummary}
               now={now}
               onPress={openVideo}
-              onSavePress={setVideoToSave}
+              action={saveAction}
             />
           )}
           onEndReached={videos.loadMore}
@@ -101,7 +109,11 @@ export default function ChannelVideosScreen() {
         />
       )}
 
-      <SaveVideoSheet video={videoToSave} onClose={() => setVideoToSave(null)} />
+      <SaveVideoSheet
+        video={videoToSave}
+        channel={videoChannel}
+        onClose={() => setVideoToSave(null)}
+      />
     </SafeAreaView>
   );
 }

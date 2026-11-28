@@ -1,8 +1,10 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
 import { BottomSheet } from '@/components/BottomSheet';
+import { IconButton } from '@/components/IconButton';
 import { SheetOption } from '@/components/SheetOption';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
@@ -10,7 +12,10 @@ import { colors, spacing } from '@/theme/colors';
 
 const AVATAR_SIZE = 36;
 
-/** App title plus the account avatar, whose menu offers clearing cached data and signing out. */
+/**
+ * App title, a button to the user's saved lists, and the account avatar, whose menu offers
+ * clearing cached data and signing out.
+ */
 export function InboxHeader() {
   const { session, signOut } = useAuth();
   const { clearCachedDataAndReload, isRefreshing } = useChannelInbox();
@@ -38,6 +43,11 @@ export function InboxHeader() {
         <Text style={styles.title}>Channel Desk</Text>
         <Text style={styles.subtitle}>Your subscriptions, organized by topic</Text>
       </View>
+      <IconButton
+        iconName="bookmark-multiple-outline"
+        accessibilityLabel="Your lists"
+        onPress={() => router.push('/lists')}
+      />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Account ${user.email}`}
@@ -68,7 +78,8 @@ export function InboxHeader() {
           />
         </View>
         <Text style={styles.menuHint}>
-          Clearing reloads your subscriptions from YouTube. Folders and the sort order are kept.
+          Clearing reloads your subscriptions from YouTube. Folders, lists and the sort order are
+          kept.
         </Text>
       </BottomSheet>
     </View>

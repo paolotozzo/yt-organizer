@@ -18,8 +18,11 @@ Users sign in with Google and grant every YouTube permission (the app is in Goog
 - Tap a channel to see its videos (uploads playlist plus `videos.list` for length and views,
   2 quota units per 20 videos); tap a video to open it in YouTube. Long press a channel to
   start selecting.
-- Save a video to one of your playlists from the button beside it (`playlistItems.insert`,
-  50 quota units each). Watch later isn't offered: YouTube no longer lets apps add to it.
+- Save a video from the button beside it. **Your lists** are kept on the phone: free and
+  instant, and tapping a list again takes the video out. **YouTube playlists** are listed below
+  them (`playlistItems.insert`, 50 quota units each). Watch later isn't offered: YouTube no
+  longer lets apps add to it. Open your lists from the bookmark button on the inbox, where you
+  can also rename or delete a list and remove videos from it.
 - Sort channels by **Relevance** or **Unread** (YouTube's own orders from `subscriptions.list`),
   **Latest upload** (each channel's public uploads feed, `youtube.com/feeds/videos.xml`, which
   costs no quota; the uploads playlist via `playlistItems.list`, 1 unit, only when a feed
@@ -131,7 +134,9 @@ src/
   features/folders/    Folder library rules (pure, unit tested) and on-device storage
   features/sorting/    Channel sort orders and latest-upload checks
   features/youtube/    Shared YouTube Data API client and the versioned on-device cache
-  features/videos/     A channel's video list: API, formatting and the video card
+  features/videos/     A channel's video list: API, formatting, the video card and save sheet
+  features/playlists/  The user's YouTube playlists and adding videos to them
+  features/savedLists/ Video lists kept on the phone (pure, unit tested) behind a store
   features/inbox/      Inbox state provider and its UI components
   theme/               Dark color palette and spacing
 ```

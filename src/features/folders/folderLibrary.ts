@@ -24,6 +24,13 @@ export type FolderLibrary = {
 
 export const MAX_FOLDER_NAME_LENGTH = 40;
 
+/** How the folder name field looks wherever a folder is named. */
+export const FOLDER_NAME_FIELD = {
+  placeholder: 'e.g. Tech, Geopolitics, Health',
+  accessibilityLabel: 'Folder name',
+  maxLength: MAX_FOLDER_NAME_LENGTH,
+} as const;
+
 export type FolderNameValidation =
   | { isValid: true; folderName: string }
   | { isValid: false; problem: string };

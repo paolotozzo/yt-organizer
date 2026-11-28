@@ -37,7 +37,7 @@ export function isChannelVideosPage(value: unknown): value is ChannelVideosPage 
   );
 }
 
-function isChannelVideo(value: unknown): value is ChannelVideo {
+export function isChannelVideo(value: unknown): value is ChannelVideo {
   if (typeof value !== 'object' || value === null) {
     return false;
   }

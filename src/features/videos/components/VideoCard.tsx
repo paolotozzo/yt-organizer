@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
-import { IconButton } from '@/components/IconButton';
+import { IconButton, type IconName } from '@/components/IconButton';
 import { formatTimeAgo } from '@/features/sorting/formatRelativeTime';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import type { ChannelVideo } from '@/features/videos/channelVideo';
@@ -16,23 +16,30 @@ type VideoCardProps = {
   channel: Pick<SubscribedChannel, 'title' | 'thumbnailUrl'>;
   now: number;
   onPress: (video: ChannelVideo) => void;
-  /** Opens the options to save the video to a playlist or Watch later. */
-  onSavePress: (video: ChannelVideo) => void;
+  /** The button beside the title, e.g. to save the video or to remove it from a list. */
+  action: VideoCardAction;
+};
+
+export type VideoCardAction = {
+  iconName: IconName;
+  /** Read out with the video title, e.g. "Save" becomes "Save <title>". */
+  label: string;
+  onPress: (video: ChannelVideo) => void;
 };
 
 const CHANNEL_AVATAR_SIZE = 36;
 const THUMBNAIL_ASPECT_RATIO = 16 / 9;
 
 /**
- * Full-width thumbnail with its length, then the title, channel, views and age below, and a
- * save button beside them.
+ * Full-width thumbnail with its length, then the title, channel, views and age below, and an
+ * action button beside them.
  */
 export const VideoCard = memo(function VideoCard({
   video,
   channel,
   now,
   onPress,
-  onSavePress,
+  action,
 }: VideoCardProps) {
   return (
     <Pressable
@@ -66,10 +73,10 @@ export const VideoCard = memo(function VideoCard({
           <VideoMetadata video={video} channelTitle={channel.title} now={now} />
         </View>
         <IconButton
-          iconName="playlist-plus"
+          iconName={action.iconName}
           color={colors.textSecondary}
-          accessibilityLabel={`Save ${video.title}`}
-          onPress={() => onSavePress(video)}
+          accessibilityLabel={`${action.label} ${video.title}`}
+          onPress={() => action.onPress(video)}
           style={styles.saveButton}
         />
       </View>

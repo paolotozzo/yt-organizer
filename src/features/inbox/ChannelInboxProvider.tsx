@@ -18,6 +18,7 @@ import {
   clearCachedYoutubeData,
   deleteOutdatedCacheEntries,
 } from '@/features/youtube/youtubeDataCache';
+import { generateLocalId } from '@/utils/generateLocalId';
 
 /** Creating or renaming returns the validation, so dialogs can show why a name was refused. */
 type FolderNameResult = FolderNameValidation & { folderId?: string };
@@ -104,7 +105,7 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
         return validation;
       }
 
-      const folderId = generateFolderId();
+      const folderId = generateLocalId('folder');
       dispatch({ type: 'folderCreated', folderId, folderName: validation.folderName });
       return { ...validation, folderId };
     },
@@ -186,9 +187,4 @@ export function useChannelInbox(): ChannelInboxContextValue {
   }
 
   return contextValue;
-}
-
-function generateFolderId(): string {
-  const randomSuffix = Math.random().toString(36).slice(2, 8);
-  return `folder-${Date.now().toString(36)}-${randomSuffix}`;
 }

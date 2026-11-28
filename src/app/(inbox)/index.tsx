@@ -5,14 +5,18 @@ import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
+import { NameSheet } from '@/components/NameSheet';
 import { SearchField } from '@/components/SearchField';
 import { StatusView } from '@/components/StatusView';
-import { findFolder, type FolderLibrary } from '@/features/folders/folderLibrary';
+import {
+  FOLDER_NAME_FIELD,
+  findFolder,
+  type FolderLibrary,
+} from '@/features/folders/folderLibrary';
 import { getUnassignedChannels } from '@/features/folders/folderViews';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
 import { filterChannelsByName } from '@/features/inbox/channelNameSearch';
 import { ChannelRow } from '@/features/inbox/components/ChannelRow';
-import { FolderNameSheet } from '@/features/inbox/components/FolderNameSheet';
 import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
 import { InboxHeader } from '@/features/inbox/components/InboxHeader';
 import { ReorderableFolderLists } from '@/features/inbox/components/ReorderableFolderLists';
@@ -220,7 +224,8 @@ function OrganizedInbox() {
         onFolderPicked={moveSelectionToFolder}
         onClose={() => setIsFolderPickerVisible(false)}
       />
-      <FolderNameSheet
+      <NameSheet
+        {...FOLDER_NAME_FIELD}
         isVisible={isNewFolderSheetVisible}
         title="New folder"
         submitLabel="Create"

@@ -4,14 +4,14 @@ import { Alert, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
+import { NameSheet } from '@/components/NameSheet';
 import { SearchField } from '@/components/SearchField';
 import { ScreenTopBar } from '@/components/ScreenTopBar';
-import { findFolder, type TopicFolder } from '@/features/folders/folderLibrary';
+import { FOLDER_NAME_FIELD, findFolder, type TopicFolder } from '@/features/folders/folderLibrary';
 import { getFolderContents, type FolderContents } from '@/features/folders/folderViews';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
 import { filterChannelsByName } from '@/features/inbox/channelNameSearch';
 import { ChannelRow } from '@/features/inbox/components/ChannelRow';
-import { FolderNameSheet } from '@/features/inbox/components/FolderNameSheet';
 import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
 import { formatChannelCount } from '@/features/inbox/components/FolderRow';
 import { SelectionActionBar } from '@/features/inbox/components/SelectionActionBar';
@@ -202,7 +202,8 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
         onFolderPicked={moveSelectionToFolder}
         onClose={() => setIsFolderPickerVisible(false)}
       />
-      <FolderNameSheet
+      <NameSheet
+        {...FOLDER_NAME_FIELD}
         isVisible={isRenameSheetVisible}
         title="Rename folder"
         submitLabel="Save"

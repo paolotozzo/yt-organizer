@@ -10,8 +10,8 @@ export const youtubeCacheMaxAge = {
   subscriptions: 6 * HOUR,
   /** YouTube's relevance and unread orders. */
   subscriptionRankings: 6 * HOUR,
-  /** Each channel's newest upload: 1 quota unit per channel, so checked less often. */
-  latestUploads: 6 * HOUR,
+  /** Each channel's newest upload, read from the free uploads feeds (one request each). */
+  latestUploads: HOUR,
   /** On pull to refresh, latest uploads newer than this are not checked again. */
   latestUploadsOnRefresh: HOUR / 4,
   /** The first page of a channel's videos (older pages are not cached). */

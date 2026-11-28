@@ -21,8 +21,9 @@ Users sign in with Google and grant every YouTube permission (the app is in Goog
 - Save a video to one of your playlists from the button beside it (`playlistItems.insert`,
   50 quota units each). Watch later isn't offered: YouTube no longer lets apps add to it.
 - Sort channels by **Relevance** or **Unread** (YouTube's own orders from `subscriptions.list`),
-  **Latest upload** (each channel's uploads playlist via `playlistItems.list`, 1 quota unit per
-  channel), or **A to Z**. Rows show YouTube's "new items" count.
+  **Latest upload** (each channel's public uploads feed, `youtube.com/feeds/videos.xml`, which
+  costs no quota; the uploads playlist via `playlistItems.list`, 1 unit, only when a feed
+  fails), or **A to Z**. Rows show YouTube's "new items" count.
 
 ## Caching YouTube data
 
@@ -33,7 +34,7 @@ instantly and spends little quota. Cache ages are set in `src/features/youtube/y
 | --- | --- |
 | Subscription list and "new" counts | 6 hours (shown at once even when older, then replaced) |
 | Relevance and unread rankings | 6 hours |
-| Latest upload per channel | 6 hours (15 minutes on pull to refresh) |
+| Latest upload per channel | 1 hour (15 minutes on pull to refresh) |
 | First page of a channel's videos | 1 hour |
 | Your playlists (for saving videos) | 6 hours |
 

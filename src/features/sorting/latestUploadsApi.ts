@@ -2,17 +2,34 @@ import { fetchYoutubeResource, YoutubeApiError } from '@/features/youtube/youtub
 import { getUploadsPlaylistId } from '@/features/youtube/uploadsPlaylist';
 import { mapWithConcurrency } from '@/utils/mapWithConcurrency';
 
+import { fetchLatestUploadTimeFromFeed } from './channelUploadsFeed';
 import type { LatestUploadCache } from './latestUploadCache';
 
-/** Parallel requests while checking many channels; keeps the phone and the API comfortable. */
-const CONCURRENT_REQUEST_LIMIT = 6;
+/** Parallel requests while checking many channels; keeps the phone and YouTube comfortable. */
+const CONCURRENT_REQUEST_LIMIT = 8;
 
 type PlaylistItemListResponse = {
   items?: { contentDetails?: { videoPublishedAt?: string } }[];
 };
 
-/** Publish time of the channel's newest upload, or null when it has none. */
+/**
+ * Publish time of the channel's newest upload, or null when it has none. Reads the free
+ * uploads feed first and only spends a quota unit on the Data API when the feed fails.
+ */
 export async function fetchLatestUploadTime(
+  accessToken: string,
+  channelId: string,
+): Promise<number | null> {
+  try {
+    return await fetchLatestUploadTimeFromFeed(channelId);
+  } catch (feedError) {
+    console.warn(`Uploads feed failed for channel ${channelId}, asking the API`, feedError);
+    return fetchLatestUploadTimeFromApi(accessToken, channelId);
+  }
+}
+
+/** The same answer from the uploads playlist, at 1 quota unit per channel. */
+async function fetchLatestUploadTimeFromApi(
   accessToken: string,
   channelId: string,
 ): Promise<number | null> {

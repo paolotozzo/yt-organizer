@@ -18,6 +18,12 @@ type CachedResourceOptions<Value> = {
   fetchFreshValue: () => Promise<Value>;
   /** Shown when the first load fails with an error that isn't a YoutubeApiError. */
   fallbackErrorMessage: string;
+  /**
+   * Optional free check, e.g. against a public feed, that an expired cached value is still
+   * up to date. When it says yes, the value is kept for another full maximum age and YouTube's
+   * API is not called. Must be stable (wrapped in useCallback) and resolve false on failure.
+   */
+  isCachedValueStillCurrent?: (cachedValue: Value) => Promise<boolean>;
 };
 
 type CachedResource<Value> = {
@@ -41,6 +47,7 @@ export function useCachedYoutubeResource<Value>({
   isValidValue,
   fetchFreshValue,
   fallbackErrorMessage,
+  isCachedValueStillCurrent,
 }: CachedResourceOptions<Value>): CachedResource<Value> {
   const [state, setState] = useState<CachedResourceState<Value>>({ status: 'loading' });
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -81,9 +88,16 @@ export function useCachedYoutubeResource<Value>({
       const isCacheFresh =
         cachedEntry !== null && isCacheEntryFresh(cachedEntry, Date.now(), maxAgeMilliseconds);
 
-      if (!isCacheFresh) {
-        await fetchAndCache();
+      if (isCacheFresh) {
+        return;
       }
+
+      if (cachedEntry && (await isCachedValueStillCurrent?.(cachedEntry.value))) {
+        await writeCachedEntry(userId, entryName, cachedEntry.value);
+        return;
+      }
+
+      await fetchAndCache();
     }
 
     loadCachedThenFresh();
@@ -93,7 +107,7 @@ export function useCachedYoutubeResource<Value>({
     };
     // isValidValue is a plain type guard and maxAge a constant; neither should reload data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entryName, fetchAndCache, userId]);
+  }, [entryName, fetchAndCache, isCachedValueStillCurrent, userId]);
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true);

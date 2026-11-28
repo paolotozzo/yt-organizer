@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { buildChannelUploadsFeedUrl, findLatestPublishedTime } from './channelUploadsFeed';
+import { buildChannelUploadsFeedUrl, findLatestUpload } from './channelUploadsFeed';
 
 function buildFeed(entryPublishedTimes: string[]): string {
   const entries = entryPublishedTimes
@@ -24,21 +24,27 @@ function buildFeed(entryPublishedTimes: string[]): string {
 </feed>`;
 }
 
-describe('findLatestPublishedTime', () => {
+describe('findLatestUpload', () => {
   it('returns the newest entry, ignoring the channel creation date', () => {
     const feed = buildFeed(['2026-11-20T10:00:00+00:00', '2026-11-27T08:30:00+00:00']);
 
-    expect(findLatestPublishedTime(feed)).toBe(Date.parse('2026-11-27T08:30:00Z'));
+    expect(findLatestUpload(feed)).toEqual({
+      videoId: 'video1',
+      publishedAt: Date.parse('2026-11-27T08:30:00Z'),
+    });
   });
 
   it('returns null for a feed without videos', () => {
-    expect(findLatestPublishedTime(buildFeed([]))).toBeNull();
+    expect(findLatestUpload(buildFeed([]))).toBeNull();
   });
 
   it('skips entries whose date cannot be read', () => {
     const feed = buildFeed(['not a date', '2026-11-01T00:00:00+00:00']);
 
-    expect(findLatestPublishedTime(feed)).toBe(Date.parse('2026-11-01T00:00:00Z'));
+    expect(findLatestUpload(feed)).toEqual({
+      videoId: 'video1',
+      publishedAt: Date.parse('2026-11-01T00:00:00Z'),
+    });
   });
 });
 

@@ -1,8 +1,8 @@
+import { fetchLatestUploadFromFeed } from '@/features/youtube/channelUploadsFeed';
 import { fetchYoutubeResource, YoutubeApiError } from '@/features/youtube/youtubeApiClient';
 import { getUploadsPlaylistId } from '@/features/youtube/uploadsPlaylist';
 import { mapWithConcurrency } from '@/utils/mapWithConcurrency';
 
-import { fetchLatestUploadTimeFromFeed } from './channelUploadsFeed';
 import type { LatestUploadCache } from './latestUploadCache';
 
 /** Parallel requests while checking many channels; keeps the phone and YouTube comfortable. */
@@ -21,7 +21,7 @@ export async function fetchLatestUploadTime(
   channelId: string,
 ): Promise<number | null> {
   try {
-    return await fetchLatestUploadTimeFromFeed(channelId);
+    return (await fetchLatestUploadFromFeed(channelId))?.publishedAt ?? null;
   } catch (feedError) {
     console.warn(`Uploads feed failed for channel ${channelId}, asking the API`, feedError);
     return fetchLatestUploadTimeFromApi(accessToken, channelId);

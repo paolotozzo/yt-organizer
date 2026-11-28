@@ -35,7 +35,7 @@ instantly and spends little quota. Cache ages are set in `src/features/youtube/y
 | Subscription list and "new" counts | 6 hours (shown at once even when older, then replaced) |
 | Relevance and unread rankings | 6 hours |
 | Latest upload per channel | 1 hour (15 minutes on pull to refresh) |
-| First page of a channel's videos | 1 hour |
+| First page of a channel's videos | 1 hour, then kept while the channel's free uploads feed shows no new video |
 | Your playlists (for saving videos) | 6 hours |
 
 - **Pull to refresh** always asks YouTube again.

@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
 import { NameSheet } from '@/components/NameSheet';
+import { NavigationBarScrim } from '@/components/NavigationBarScrim';
 import { ScreenTopBar } from '@/components/ScreenTopBar';
 import { useSavedVideoLists } from '@/features/savedLists/SavedVideoListsProvider';
 import {
@@ -115,6 +116,7 @@ function SavedListContents({ list }: { list: SavedVideoList }) {
         onSubmit={(proposedName) => renameList(list.id, proposedName)}
         onClose={() => setIsRenameSheetVisible(false)}
       />
+      <NavigationBarScrim />
     </SafeAreaView>
   );
 }

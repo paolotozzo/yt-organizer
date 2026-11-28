@@ -20,6 +20,8 @@ type ChannelRowProps = {
 };
 
 const AVATAR_SIZE = 44;
+const SELECTION_INDICATOR_SIZE = 20;
+const NEW_ITEMS_DOT_SIZE = 8;
 
 /**
  * A subscribed channel. The screen decides what a tap does (usually open its videos); a long
@@ -34,11 +36,15 @@ export const ChannelRow = memo(function ChannelRow({
   isPinned = false,
   subtitle,
 }: ChannelRowProps) {
+  const hasNewItems = channel.newItemCount > 0;
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: isSelected }}
-      accessibilityLabel={channel.title}
+      accessibilityLabel={
+        hasNewItems ? `${channel.title}, ${channel.newItemCount} new` : channel.title
+      }
       accessibilityHint="Long press to select"
       onPress={() => onPress(channel.channelId)}
       onLongPress={() => onLongPress(channel.channelId)}
@@ -49,20 +55,25 @@ export const ChannelRow = memo(function ChannelRow({
         pressed && !isSelected && styles.pressedRow,
       ]}
     >
-      {/* Only selected rows change, so starting a selection re-renders one row, not all. */}
-      {isSelected ? <SelectionIndicator /> : null}
-      <Avatar imageUrl={channel.thumbnailUrl} name={channel.title} size={AVATAR_SIZE} />
+      <View>
+        <Avatar imageUrl={channel.thumbnailUrl} name={channel.title} size={AVATAR_SIZE} />
+        {/* Drawn over the avatar, so selecting a row never shifts its contents sideways. */}
+        {isSelected ? <SelectionIndicator /> : null}
+      </View>
       <View style={styles.details}>
-        <Text style={styles.title} numberOfLines={1}>
-          {channel.title}
-        </Text>
+        <View style={styles.titleRow}>
+          {hasNewItems ? <View style={styles.newItemsDot} /> : null}
+          <Text style={[styles.title, hasNewItems && styles.unwatchedTitle]} numberOfLines={1}>
+            {channel.title}
+          </Text>
+        </View>
         {subtitle ? (
           <Text style={styles.subtitle} numberOfLines={1}>
             {subtitle}
           </Text>
         ) : null}
       </View>
-      {channel.newItemCount > 0 ? <NewItemsBadge count={channel.newItemCount} /> : null}
+      {channel.newItemCount > 1 ? <NewItemsCount count={channel.newItemCount} /> : null}
       {onTogglePin ? (
         <IconButton
           iconName={isPinned ? 'pin' : 'pin-outline'}
@@ -75,16 +86,21 @@ export const ChannelRow = memo(function ChannelRow({
   );
 });
 
-function NewItemsBadge({ count }: { count: number }) {
-  return (
-    <View style={styles.newItemsBadge} accessibilityLabel={`${count} new`}>
-      <Text style={styles.newItemsText}>{count > 99 ? '99+' : count} new</Text>
-    </View>
-  );
+/** Only counts above one are shown: the dot beside the title already says "new". */
+function NewItemsCount({ count }: { count: number }) {
+  return <Text style={styles.newItemsCount}>{count > 99 ? '99+' : count}</Text>;
 }
 
 function SelectionIndicator() {
-  return <MaterialCommunityIcons name="checkbox-marked-circle" size={22} color={colors.accent} />;
+  return (
+    <View style={styles.selectionIndicator}>
+      <MaterialCommunityIcons
+        name="check-circle"
+        size={SELECTION_INDICATOR_SIZE}
+        color={colors.accent}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -93,7 +109,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.medium,
     paddingVertical: spacing.small,
-    paddingHorizontal: spacing.medium,
+    // Small, so avatars line up with the header while pressed rows keep a little margin.
+    paddingHorizontal: spacing.small,
     borderRadius: 12,
     minHeight: 60,
   },
@@ -103,28 +120,47 @@ const styles = StyleSheet.create({
   pressedRow: {
     backgroundColor: colors.surface,
   },
+  selectionIndicator: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    // A ring in the background colour separates the tick from the avatar image.
+    borderRadius: SELECTION_INDICATOR_SIZE,
+    borderWidth: 2,
+    borderColor: colors.background,
+    backgroundColor: colors.background,
+  },
   details: {
     flex: 1,
     gap: 2,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  newItemsDot: {
+    width: NEW_ITEMS_DOT_SIZE,
+    height: NEW_ITEMS_DOT_SIZE,
+    borderRadius: NEW_ITEMS_DOT_SIZE / 2,
+    backgroundColor: colors.accent,
+  },
   title: {
+    flexShrink: 1,
     color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '500',
+  },
+  unwatchedTitle: {
+    fontWeight: '700',
   },
   subtitle: {
     color: colors.textSecondary,
     fontSize: 12,
   },
-  newItemsBadge: {
-    paddingHorizontal: spacing.small,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: colors.selectionBackground,
-  },
-  newItemsText: {
+  newItemsCount: {
     color: colors.accent,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
   },
 });

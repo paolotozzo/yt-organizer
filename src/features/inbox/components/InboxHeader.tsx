@@ -16,7 +16,12 @@ const AVATAR_SIZE = 36;
  * App title, a button to the user's saved lists, and the account avatar, whose menu offers
  * clearing cached data and signing out.
  */
-export function InboxHeader() {
+type InboxHeaderProps = {
+  /** A live summary under the title, e.g. how many channels have new uploads. */
+  summary: string;
+};
+
+export function InboxHeader({ summary }: InboxHeaderProps) {
   const { session, signOut } = useAuth();
   const { clearCachedDataAndReload, isRefreshing } = useChannelInbox();
   const [isAccountMenuVisible, setIsAccountMenuVisible] = useState(false);
@@ -39,23 +44,26 @@ export function InboxHeader() {
 
   return (
     <View style={styles.header}>
-      <View style={styles.titles}>
-        <Text style={styles.title}>Channel Desk</Text>
-        <Text style={styles.subtitle}>Your subscriptions, organized by topic</Text>
+      {/* The buttons share the title's row, so they line up with it, not with two lines. */}
+      <View style={styles.titleRow}>
+        <Text style={styles.title} accessibilityRole="header" accessibilityLabel="Channel Desk">
+          Channel<Text style={styles.titleAccent}>Desk</Text>
+        </Text>
+        <IconButton
+          iconName="bookmark-multiple-outline"
+          accessibilityLabel="Your lists"
+          onPress={() => router.push('/lists')}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Account ${user.email}`}
+          onPress={() => setIsAccountMenuVisible(true)}
+          hitSlop={8}
+        >
+          <Avatar imageUrl={user.photoUrl} name={user.displayName} size={AVATAR_SIZE} />
+        </Pressable>
       </View>
-      <IconButton
-        iconName="bookmark-multiple-outline"
-        accessibilityLabel="Your lists"
-        onPress={() => router.push('/lists')}
-      />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Account ${user.email}`}
-        onPress={() => setIsAccountMenuVisible(true)}
-        hitSlop={8}
-      >
-        <Avatar imageUrl={user.photoUrl} name={user.displayName} size={AVATAR_SIZE} />
-      </Pressable>
+      <Text style={styles.summary}>{summary}</Text>
 
       <BottomSheet
         isVisible={isAccountMenuVisible}
@@ -88,23 +96,27 @@ export function InboxHeader() {
 
 const styles = StyleSheet.create({
   header: {
+    gap: 2,
+    paddingTop: spacing.small,
+    paddingBottom: spacing.medium,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.medium,
-    paddingVertical: spacing.medium,
-  },
-  titles: {
-    flex: 1,
-    gap: 2,
+    gap: spacing.small,
   },
   title: {
+    flex: 1,
     color: colors.textPrimary,
     fontSize: 26,
     fontWeight: '800',
   },
-  subtitle: {
+  titleAccent: {
+    color: colors.accent,
+  },
+  summary: {
     color: colors.textSecondary,
-    fontSize: 13,
+    fontSize: 14,
   },
   email: {
     color: colors.textSecondary,

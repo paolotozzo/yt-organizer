@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
 import { IconButton } from '@/components/IconButton';
+import { NavigationBarScrim } from '@/components/NavigationBarScrim';
 import { ScreenTopBar } from '@/components/ScreenTopBar';
 import { StatusView } from '@/components/StatusView';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -137,6 +138,7 @@ export default function ChannelVideosScreen() {
         channel={videoChannel}
         onClose={() => setVideoToSave(null)}
       />
+      <NavigationBarScrim />
     </SafeAreaView>
   );
 }

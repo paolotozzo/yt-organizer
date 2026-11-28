@@ -27,7 +27,14 @@ export function useChannelSelection(): ChannelSelection {
     });
   }, []);
 
-  const clearSelection = useCallback(() => setSelectedChannelIds(new Set()), []);
+  // Keeps the same empty set when nothing is selected, so clearing then causes no re-render.
+  const clearSelection = useCallback(
+    () =>
+      setSelectedChannelIds((currentSelection) =>
+        currentSelection.size === 0 ? currentSelection : new Set(),
+      ),
+    [],
+  );
 
   return useMemo(
     () => ({

@@ -111,7 +111,6 @@ function SortOption({ label, description, isSelected, onPress }: SortOptionProps
 const styles = StyleSheet.create({
   container: {
     gap: spacing.extraSmall,
-    marginBottom: spacing.small,
   },
   trigger: {
     flexDirection: 'row',

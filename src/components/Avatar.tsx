@@ -20,7 +20,7 @@ export function Avatar({ imageUrl, name, size }: AvatarProps) {
         style={circleStyle}
         cachePolicy="memory-disk"
         recyclingKey={imageUrl}
-        transition={150}
+        // No fade-in: in recycled lists it made every row blink when the list changed.
       />
     );
   }

@@ -10,6 +10,7 @@ import { StatusView } from '@/components/StatusView';
 import {
   FOLDER_NAME_FIELD,
   findFolder,
+  getFolderNamesOfChannel,
   type FolderLibrary,
 } from '@/features/folders/folderLibrary';
 import { getUnassignedChannels, type FolderContents } from '@/features/folders/folderViews';
@@ -22,11 +23,11 @@ import {
 import { filterChannelsByName } from '@/features/inbox/channelNameSearch';
 import { ChannelRow } from '@/features/inbox/components/ChannelRow';
 import { FolderActionsSheet } from '@/features/inbox/components/FolderActionsSheet';
-import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
 import { InboxHeader } from '@/features/inbox/components/InboxHeader';
 import { SelectionActionBar } from '@/features/inbox/components/SelectionActionBar';
 import { SortPicker } from '@/features/inbox/components/SortPicker';
 import { TopicPills } from '@/features/inbox/components/TopicPills';
+import { TopicsSheet } from '@/features/inbox/components/TopicsSheet';
 import { describeChannelSubtitle } from '@/features/inbox/describeChannelSubtitle';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import { useChannelPressHandlers } from '@/features/inbox/useChannelPressHandlers';
@@ -83,15 +84,14 @@ function OrganizedInbox() {
     isRefreshing,
     refreshSubscriptions,
     createFolder,
-    moveChannelsToFolder,
-    unassignChannels,
+    removeChannelsFromFolder,
     setChannelPinned,
   } = useChannelInbox();
   const selection = useChannelSelection();
   const { selectedChannelIds, clearSelection } = selection;
   const [requestedFilter, setRequestedFilter] = useState<ChannelFilter>(ALL_CHANNELS_FILTER);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isFolderPickerVisible, setIsFolderPickerVisible] = useState(false);
+  const [isTopicsSheetVisible, setIsTopicsSheetVisible] = useState(false);
   const [isNewFolderSheetVisible, setIsNewFolderSheetVisible] = useState(false);
   const [folderIdForActions, setFolderIdForActions] = useState<string | null>(null);
   const channelSelectionHint = useGestureHint('selectChannels');
@@ -143,14 +143,10 @@ function OrganizedInbox() {
     [clearSelection],
   );
 
-  function moveSelectionToFolder(folderId: string) {
-    moveChannelsToFolder([...selectedChannelIds], folderId);
-    clearSelection();
-    setIsFolderPickerVisible(false);
-  }
+  const selectedChannelIdList = useMemo(() => [...selectedChannelIds], [selectedChannelIds]);
 
-  function removeSelectionFromFolder() {
-    unassignChannels([...selectedChannelIds]);
+  function removeSelectionFromFolder(folderId: string) {
+    removeChannelsFromFolder(selectedChannelIdList, folderId);
     clearSelection();
   }
 
@@ -182,7 +178,7 @@ function OrganizedInbox() {
           latestUploadAt: latestUploadAtByChannelId.get(channel.channelId),
           folderName:
             listFilter.kind === 'all'
-              ? findFolderNameOfChannel(library, channel.channelId)
+              ? describeTopicsOfChannel(library, channel.channelId)
               : undefined,
           now,
         })}
@@ -255,19 +251,20 @@ function OrganizedInbox() {
         <SafeAreaView edges={['bottom']} style={styles.actionBarContainer}>
           <SelectionActionBar
             selectedCount={selection.selectedCount}
-            onMove={() => setIsFolderPickerVisible(true)}
-            onRemoveFromFolder={selectedFolder ? removeSelectionFromFolder : undefined}
+            onEditTopics={() => setIsTopicsSheetVisible(true)}
+            onRemoveFromFolder={
+              selectedFolder ? () => removeSelectionFromFolder(selectedFolder.id) : undefined
+            }
             onClear={clearSelection}
           />
         </SafeAreaView>
       ) : null}
 
-      <FolderPickerSheet
-        isVisible={isFolderPickerVisible}
-        selectedCount={selection.selectedCount}
-        currentFolderId={selectedFolder?.id}
-        onFolderPicked={moveSelectionToFolder}
-        onClose={() => setIsFolderPickerVisible(false)}
+      <TopicsSheet
+        isVisible={isTopicsSheetVisible}
+        channelIds={selectedChannelIdList}
+        onApplied={clearSelection}
+        onClose={() => setIsTopicsSheetVisible(false)}
       />
       <FolderActionsSheet
         folder={folderIdForActions ? (findFolder(library, folderIdForActions) ?? null) : null}
@@ -331,9 +328,10 @@ function describeNewUploads(subscribedChannels: readonly SubscribedChannel[]): s
     : `${channelsWithNewUploads} channels with new uploads`;
 }
 
-function findFolderNameOfChannel(library: FolderLibrary, channelId: string): string | undefined {
-  const folderId = library.folderIdByChannelId[channelId];
-  return folderId ? findFolder(library, folderId)?.name : undefined;
+/** "Tech, Health" for a channel in two topics, or undefined when it is in none. */
+function describeTopicsOfChannel(library: FolderLibrary, channelId: string): string | undefined {
+  const folderNames = getFolderNamesOfChannel(library, channelId);
+  return folderNames.length > 0 ? folderNames.join(', ') : undefined;
 }
 
 function describeChannelCount(channelCount: number, isSelectionHintVisible: boolean): string {
@@ -350,9 +348,9 @@ function describeEmptyChannelList(channelFilter: ChannelFilter, isSearching: boo
     case 'all':
       return 'You are not subscribed to any channel yet.';
     case 'unassigned':
-      return 'Every channel is in a folder. Nice and tidy!';
+      return 'Every channel has a topic. Nice and tidy!';
     case 'folder':
-      return 'No channels here yet. In All, long press channels to select them, then tap Move to… to file them here.';
+      return 'No channels here yet. In All, long press channels to select them, then tap Topics… to file them here.';
   }
 }
 

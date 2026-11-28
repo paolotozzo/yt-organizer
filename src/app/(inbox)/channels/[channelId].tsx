@@ -11,9 +11,9 @@ import { NavigationBarScrim } from '@/components/NavigationBarScrim';
 import { ScreenTopBar } from '@/components/ScreenTopBar';
 import { StatusView } from '@/components/StatusView';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { findFolder } from '@/features/folders/folderLibrary';
+import { getFolderNamesOfChannel } from '@/features/folders/folderLibrary';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
-import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
+import { TopicsSheet } from '@/features/inbox/components/TopicsSheet';
 import { SaveVideoSheet } from '@/features/videos/components/SaveVideoSheet';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import { buildVideoUrl, type ChannelVideo } from '@/features/videos/channelVideo';
@@ -26,15 +26,15 @@ const TOP_BAR_AVATAR_SIZE = 32;
 
 /**
  * A channel's uploads, newest first. Tapping a video opens it in the YouTube app; its save
- * button adds it to a list or playlist. The folder button files the channel under a topic.
+ * button adds it to a list or playlist. The folder button picks the channel's topics.
  */
 export default function ChannelVideosScreen() {
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
   const { session, getAccessToken } = useAuth();
-  const { subscribedChannels, library, moveChannelsToFolder } = useChannelInbox();
+  const { subscribedChannels, library } = useChannelInbox();
   const channel = subscribedChannels.find((candidate) => candidate.channelId === channelId);
-  const folderId = library.folderIdByChannelId[channelId];
-  const folderName = folderId ? findFolder(library, folderId)?.name : undefined;
+  const topicNames = getFolderNamesOfChannel(library, channelId);
+  const channelIds = useMemo(() => [channelId], [channelId]);
 
   const videos = useChannelVideos(session?.user.id ?? '', channelId, getAccessToken);
   const now = useCurrentTime();
@@ -46,19 +46,14 @@ export default function ChannelVideosScreen() {
   );
 
   const [videoToSave, setVideoToSave] = useState<ChannelVideo | null>(null);
-  const [isFolderPickerVisible, setIsFolderPickerVisible] = useState(false);
-
-  function moveChannelToFolder(destinationFolderId: string) {
-    moveChannelsToFolder([channelId], destinationFolderId);
-    setIsFolderPickerVisible(false);
-  }
+  const [isTopicsSheetVisible, setIsTopicsSheetVisible] = useState(false);
 
   const openVideo = useCallback((video: ChannelVideo) => {
     Linking.openURL(buildVideoUrl(video.videoId));
   }, []);
   const saveAction = useMemo<VideoCardAction>(
     () => ({ iconName: 'playlist-plus', label: 'Save', onPress: setVideoToSave }),
-    [],
+    [setVideoToSave],
   );
   const videoChannel = useMemo(
     () => ({ channelId, title: channelTitle, thumbnailUrl: channelThumbnailUrl }),
@@ -69,14 +64,14 @@ export default function ChannelVideosScreen() {
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScreenTopBar
         title={channelSummary.title}
-        subtitle={folderName ? `in ${folderName}` : 'Not in a folder'}
+        subtitle={topicNames.length > 0 ? `in ${topicNames.join(', ')}` : 'No topic yet'}
         leading={<ChannelAvatar channel={channel} />}
       >
         <IconButton
-          iconName={folderId ? 'folder-move-outline' : 'folder-plus-outline'}
+          iconName={topicNames.length > 0 ? 'folder-edit-outline' : 'folder-plus-outline'}
           color={colors.accent}
-          accessibilityLabel={folderName ? 'Move to another folder' : 'Add to a folder'}
-          onPress={() => setIsFolderPickerVisible(true)}
+          accessibilityLabel="Choose topics"
+          onPress={() => setIsTopicsSheetVisible(true)}
         />
       </ScreenTopBar>
 
@@ -125,13 +120,11 @@ export default function ChannelVideosScreen() {
         />
       )}
 
-      <FolderPickerSheet
-        isVisible={isFolderPickerVisible}
-        selectedCount={1}
-        currentFolderId={folderId}
-        title={folderName ? `Move ${channelTitle} to` : `Add ${channelTitle} to`}
-        onFolderPicked={moveChannelToFolder}
-        onClose={() => setIsFolderPickerVisible(false)}
+      <TopicsSheet
+        isVisible={isTopicsSheetVisible}
+        channelIds={channelIds}
+        title={`Topics for ${channelTitle}`}
+        onClose={() => setIsTopicsSheetVisible(false)}
       />
       <SaveVideoSheet
         video={videoToSave}

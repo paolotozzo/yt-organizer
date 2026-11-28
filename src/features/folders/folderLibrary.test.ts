@@ -6,8 +6,10 @@ import {
   deleteFolder,
   findFolder,
   forgetUnsubscribedChannels,
-  moveChannelsToFolder,
+  addChannelsToFolder,
+  applyFolderMembershipChanges,
   moveFolder,
+  removeChannelsFromFolder,
   renameFolder,
   setChannelPinned,
   setFolderPinned,
@@ -76,17 +78,17 @@ describe('createFolder, renameFolder and deleteFolder', () => {
     expect(library.folders.map((folder) => folder.name)).toEqual(['Science', 'Health']);
   });
 
-  it('makes the channels of a deleted folder unassigned', () => {
-    const library = moveChannelsToFolder(
-      moveChannelsToFolder(buildLibraryWithFolders('Tech', 'Health'), ['c1', 'c2'], 'tech'),
-      ['c3'],
+  it('takes a deleted folder out of its channels, keeping their other folders', () => {
+    const library = addChannelsToFolder(
+      addChannelsToFolder(buildLibraryWithFolders('Tech', 'Health'), ['c1', 'c2'], 'tech'),
+      ['c2', 'c3'],
       'health',
     );
 
     const libraryAfterDelete = deleteFolder(library, 'tech');
 
     expect(folderIdsInOrder(libraryAfterDelete)).toEqual(['health']);
-    expect(libraryAfterDelete.folderIdByChannelId).toEqual({ c3: 'health' });
+    expect(libraryAfterDelete.folderIdsByChannelId).toEqual({ c2: ['health'], c3: ['health'] });
   });
 
   it('does not mutate the original library', () => {
@@ -95,7 +97,7 @@ describe('createFolder, renameFolder and deleteFolder', () => {
 
     renameFolder(library, 'tech', 'Science');
     deleteFolder(library, 'tech');
-    moveChannelsToFolder(library, ['c1'], 'tech');
+    addChannelsToFolder(library, ['c1'], 'tech');
 
     expect(JSON.stringify(library)).toBe(snapshot);
   });
@@ -184,49 +186,53 @@ describe('moveFolder', () => {
   });
 });
 
-describe('moveChannelsToFolder and unassignChannels', () => {
+describe('addChannelsToFolder, removeChannelsFromFolder and unassignChannels', () => {
   const library = buildLibraryWithFolders('Tech', 'Health');
 
-  it('assigns every selected channel to the folder', () => {
-    const libraryAfterMove = moveChannelsToFolder(library, ['c1', 'c2'], 'tech');
+  it('adds every selected channel to the folder', () => {
+    const libraryAfterAdd = addChannelsToFolder(library, ['c1', 'c2'], 'tech');
 
-    expect(libraryAfterMove.folderIdByChannelId).toEqual({ c1: 'tech', c2: 'tech' });
+    expect(libraryAfterAdd.folderIdsByChannelId).toEqual({ c1: ['tech'], c2: ['tech'] });
   });
 
-  it('takes a channel out of its previous folder and drops its pin there', () => {
+  it('lets a channel be in several folders, keeping its pin in the first', () => {
     const libraryWithPin = setChannelPinned(
-      moveChannelsToFolder(library, ['c1', 'c2'], 'tech'),
+      addChannelsToFolder(library, ['c1'], 'tech'),
       'tech',
       'c1',
       true,
     );
 
-    const libraryAfterMove = moveChannelsToFolder(libraryWithPin, ['c1'], 'health');
+    const libraryAfterAdd = addChannelsToFolder(libraryWithPin, ['c1'], 'health');
 
-    expect(libraryAfterMove.folderIdByChannelId).toEqual({ c1: 'health', c2: 'tech' });
-    expect(pinnedChannelIdsOf(libraryAfterMove, 'tech')).toEqual([]);
+    expect(libraryAfterAdd.folderIdsByChannelId).toEqual({ c1: ['tech', 'health'] });
+    expect(pinnedChannelIdsOf(libraryAfterAdd, 'tech')).toEqual(['c1']);
   });
 
-  it('keeps the pin of a channel moved into the folder it is already in', () => {
+  it('returns the same library when nothing is added, or the folder does not exist', () => {
+    const libraryWithChannel = addChannelsToFolder(library, ['c1'], 'tech');
+
+    expect(addChannelsToFolder(libraryWithChannel, ['c1'], 'tech')).toBe(libraryWithChannel);
+    expect(addChannelsToFolder(library, ['c1'], 'missing')).toBe(library);
+  });
+
+  it('removes channels from one folder only, dropping their pin there', () => {
     const libraryWithPin = setChannelPinned(
-      moveChannelsToFolder(library, ['c1'], 'tech'),
+      addChannelsToFolder(addChannelsToFolder(library, ['c1', 'c2'], 'tech'), ['c1'], 'health'),
       'tech',
       'c1',
       true,
     );
 
-    const libraryAfterMove = moveChannelsToFolder(libraryWithPin, ['c1', 'c2'], 'tech');
+    const libraryAfterRemove = removeChannelsFromFolder(libraryWithPin, ['c1', 'c2'], 'tech');
 
-    expect(pinnedChannelIdsOf(libraryAfterMove, 'tech')).toEqual(['c1']);
+    expect(libraryAfterRemove.folderIdsByChannelId).toEqual({ c1: ['health'] });
+    expect(pinnedChannelIdsOf(libraryAfterRemove, 'tech')).toEqual([]);
   });
 
-  it('ignores a folder that does not exist', () => {
-    expect(moveChannelsToFolder(library, ['c1'], 'missing')).toBe(library);
-  });
-
-  it('unassigns channels and removes their pins', () => {
+  it('unassigns channels from every folder and removes their pins', () => {
     const libraryWithPin = setChannelPinned(
-      moveChannelsToFolder(library, ['c1', 'c2'], 'tech'),
+      addChannelsToFolder(addChannelsToFolder(library, ['c1', 'c2'], 'tech'), ['c1'], 'health'),
       'tech',
       'c1',
       true,
@@ -234,13 +240,33 @@ describe('moveChannelsToFolder and unassignChannels', () => {
 
     const libraryAfterUnassign = unassignChannels(libraryWithPin, ['c1']);
 
-    expect(libraryAfterUnassign.folderIdByChannelId).toEqual({ c2: 'tech' });
+    expect(libraryAfterUnassign.folderIdsByChannelId).toEqual({ c2: ['tech'] });
     expect(pinnedChannelIdsOf(libraryAfterUnassign, 'tech')).toEqual([]);
   });
 });
 
+describe('applyFolderMembershipChanges', () => {
+  it('adds and removes the channels per folder and leaves other folders alone', () => {
+    const library = addChannelsToFolder(
+      addChannelsToFolder(buildLibraryWithFolders('Tech', 'Health', 'News'), ['c1'], 'tech'),
+      ['c2'],
+      'news',
+    );
+
+    const libraryAfterChanges = applyFolderMembershipChanges(library, ['c1', 'c2'], {
+      tech: 'remove',
+      health: 'add',
+    });
+
+    expect(libraryAfterChanges.folderIdsByChannelId).toEqual({
+      c1: ['health'],
+      c2: ['news', 'health'],
+    });
+  });
+});
+
 describe('setChannelPinned', () => {
-  const library = moveChannelsToFolder(buildLibraryWithFolders('Tech'), ['c1', 'c2'], 'tech');
+  const library = addChannelsToFolder(buildLibraryWithFolders('Tech'), ['c1', 'c2'], 'tech');
 
   it('keeps pins in the order they were made', () => {
     const libraryWithPins = setChannelPinned(
@@ -275,7 +301,7 @@ describe('setChannelPinned', () => {
 describe('forgetUnsubscribedChannels', () => {
   it('drops assignments and pins of channels the user unsubscribed from', () => {
     const library = setChannelPinned(
-      moveChannelsToFolder(buildLibraryWithFolders('Tech'), ['c1', 'c2'], 'tech'),
+      addChannelsToFolder(buildLibraryWithFolders('Tech'), ['c1', 'c2'], 'tech'),
       'tech',
       'c1',
       true,
@@ -283,12 +309,12 @@ describe('forgetUnsubscribedChannels', () => {
 
     const cleanedLibrary = forgetUnsubscribedChannels(library, new Set(['c2']));
 
-    expect(cleanedLibrary.folderIdByChannelId).toEqual({ c2: 'tech' });
+    expect(cleanedLibrary.folderIdsByChannelId).toEqual({ c2: ['tech'] });
     expect(pinnedChannelIdsOf(cleanedLibrary, 'tech')).toEqual([]);
   });
 
   it('returns the same library when every channel is still subscribed', () => {
-    const library = moveChannelsToFolder(buildLibraryWithFolders('Tech'), ['c1'], 'tech');
+    const library = addChannelsToFolder(buildLibraryWithFolders('Tech'), ['c1'], 'tech');
 
     expect(forgetUnsubscribedChannels(library, new Set(['c1', 'c2']))).toBe(library);
   });

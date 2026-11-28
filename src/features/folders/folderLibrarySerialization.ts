@@ -1,7 +1,12 @@
 import { createEmptyFolderLibrary, type FolderLibrary, type TopicFolder } from './folderLibrary';
 
-/** Bump when the stored shape changes, and migrate older versions in `parseStoredFolderLibrary`. */
-export const FOLDER_LIBRARY_SCHEMA_VERSION = 1;
+/**
+ * Bump when the stored shape changes, and migrate older versions in `parseStoredFolderLibrary`.
+ * Version 1 kept one folder per channel (`folderIdByChannelId`); version 2 allows several.
+ */
+export const FOLDER_LIBRARY_SCHEMA_VERSION = 2;
+
+const SINGLE_FOLDER_SCHEMA_VERSION = 1;
 
 type StoredFolderLibrary = {
   schemaVersion: typeof FOLDER_LIBRARY_SCHEMA_VERSION;
@@ -30,29 +35,49 @@ export function parseStoredFolderLibrary(serializedLibrary: string | null): Fold
   try {
     const storedValue: unknown = JSON.parse(serializedLibrary);
 
-    if (!isRecord(storedValue) || storedValue.schemaVersion !== FOLDER_LIBRARY_SCHEMA_VERSION) {
+    if (!isRecord(storedValue) || !isRecord(storedValue.library)) {
       return createEmptyFolderLibrary();
     }
 
-    return normalizeFolderLibrary(storedValue.library);
+    switch (storedValue.schemaVersion) {
+      case FOLDER_LIBRARY_SCHEMA_VERSION:
+        return normalizeFolderLibrary(storedValue.library, storedValue.library.folderIdsByChannelId);
+      case SINGLE_FOLDER_SCHEMA_VERSION:
+        return normalizeFolderLibrary(
+          storedValue.library,
+          migrateSingleFolderAssignments(storedValue.library.folderIdByChannelId),
+        );
+      default:
+        return createEmptyFolderLibrary();
+    }
   } catch {
     return createEmptyFolderLibrary();
   }
 }
 
-function normalizeFolderLibrary(value: unknown): FolderLibrary {
+/** Version 1 stored `{ channelId: folderId }`; each channel keeps that one folder. */
+function migrateSingleFolderAssignments(value: unknown): unknown {
   if (!isRecord(value)) {
-    return createEmptyFolderLibrary();
+    return {};
   }
 
+  return Object.fromEntries(
+    Object.entries(value).map(([channelId, folderId]) => [channelId, [folderId]]),
+  );
+}
+
+function normalizeFolderLibrary(
+  value: Record<string, unknown>,
+  storedAssignments: unknown,
+): FolderLibrary {
   const folders = parseFolders(value.folders);
   const folderIds = new Set(folders.map((folder) => folder.id));
-  const folderIdByChannelId = parseAssignments(value.folderIdByChannelId, folderIds);
+  const folderIdsByChannelId = parseAssignments(storedAssignments, folderIds);
 
   const foldersWithValidPins = folders.map((folder) => ({
     ...folder,
     pinnedChannelIds: folder.pinnedChannelIds.filter(
-      (channelId) => folderIdByChannelId[channelId] === folder.id,
+      (channelId) => folderIdsByChannelId[channelId]?.includes(folder.id) === true,
     ),
   }));
 
@@ -61,7 +86,7 @@ function normalizeFolderLibrary(value: unknown): FolderLibrary {
       ...foldersWithValidPins.filter((folder) => folder.isPinned),
       ...foldersWithValidPins.filter((folder) => !folder.isPinned),
     ],
-    folderIdByChannelId,
+    folderIdsByChannelId,
   };
 }
 
@@ -102,17 +127,36 @@ function parseFolder(value: unknown): TopicFolder | null {
   };
 }
 
-function parseAssignments(value: unknown, folderIds: ReadonlySet<string>): Record<string, string> {
+/** Keeps only string folder ids of existing folders, once each, and drops empty entries. */
+function parseAssignments(
+  value: unknown,
+  folderIds: ReadonlySet<string>,
+): Record<string, string[]> {
   if (!isRecord(value)) {
     return {};
   }
 
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      (entry): entry is [string, string] =>
-        typeof entry[1] === 'string' && folderIds.has(entry[1]),
-    ),
-  );
+  const folderIdsByChannelId: Record<string, string[]> = {};
+
+  for (const [channelId, assignedFolderIds] of Object.entries(value)) {
+    if (!Array.isArray(assignedFolderIds)) {
+      continue;
+    }
+
+    const validFolderIds = [
+      ...new Set(
+        assignedFolderIds.filter(
+          (folderId): folderId is string => typeof folderId === 'string' && folderIds.has(folderId),
+        ),
+      ),
+    ];
+
+    if (validFolderIds.length > 0) {
+      folderIdsByChannelId[channelId] = validFolderIds;
+    }
+  }
+
+  return folderIdsByChannelId;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

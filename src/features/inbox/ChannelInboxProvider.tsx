@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import {
   validateFolderName,
   type FolderLibrary,
+  type FolderMembershipChange,
   type FolderNameValidation,
 } from '@/features/folders/folderLibrary';
 import { usePersistedFolderLibrary } from '@/features/folders/usePersistedFolderLibrary';
@@ -44,8 +45,13 @@ type ChannelInboxContextValue = {
   deleteFolder: (folderId: string) => void;
   setFolderPinned: (folderId: string, isPinned: boolean) => void;
   moveFolder: (fromIndex: number, toIndex: number) => void;
-  moveChannelsToFolder: (channelIds: string[], folderId: string) => void;
-  unassignChannels: (channelIds: string[]) => void;
+  /** Takes the channels out of this one folder; they stay in their other folders. */
+  removeChannelsFromFolder: (channelIds: string[], folderId: string) => void;
+  /** Applies what the topics sheet's Done collected, for the same channels at once. */
+  changeFolderMemberships: (
+    channelIds: string[],
+    changeByFolderId: Record<string, FolderMembershipChange>,
+  ) => void;
   setChannelPinned: (folderId: string, channelId: string, isPinned: boolean) => void;
 };
 
@@ -132,10 +138,12 @@ export function ChannelInboxProvider({ userId, children }: ChannelInboxProviderP
         dispatch({ type: 'folderPinToggled', folderId, isPinned }),
       moveFolder: (fromIndex: number, toIndex: number) =>
         dispatch({ type: 'folderMoved', fromIndex, toIndex }),
-      moveChannelsToFolder: (channelIds: string[], folderId: string) =>
-        dispatch({ type: 'channelsMovedToFolder', channelIds, folderId }),
-      unassignChannels: (channelIds: string[]) =>
-        dispatch({ type: 'channelsUnassigned', channelIds }),
+      removeChannelsFromFolder: (channelIds: string[], folderId: string) =>
+        dispatch({ type: 'channelsRemovedFromFolder', channelIds, folderId }),
+      changeFolderMemberships: (
+        channelIds: string[],
+        changeByFolderId: Record<string, FolderMembershipChange>,
+      ) => dispatch({ type: 'folderMembershipsChanged', channelIds, changeByFolderId }),
       setChannelPinned: (folderId: string, channelId: string, isPinned: boolean) =>
         dispatch({ type: 'channelPinToggled', folderId, channelId, isPinned }),
     }),

@@ -6,7 +6,7 @@ import {
   createEmptyFolderLibrary,
   createFolder,
   findFolder,
-  moveChannelsToFolder,
+  addChannelsToFolder,
   setChannelPinned,
   type TopicFolder,
 } from './folderLibrary';
@@ -24,7 +24,7 @@ const subscribedChannels = [
 ];
 
 const libraryWithTechFolder = setChannelPinned(
-  moveChannelsToFolder(
+  addChannelsToFolder(
     createFolder(createEmptyFolderLibrary(), { id: 'tech', name: 'Tech' }),
     ['zeta', 'alpha', 'mid', 'unsubscribed'],
     'tech',

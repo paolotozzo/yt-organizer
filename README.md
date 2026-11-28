@@ -10,11 +10,14 @@ Users sign in with Google and grant every YouTube permission (the app is in Goog
 **Organized inbox.** The home screen lists the user's YouTube subscriptions
 (Data API `subscriptions.list`, `mine=true`) under topic folders they create:
 
-- Create, rename and delete folders. Deleting a folder only unassigns its channels.
-- Select several channels, then tap a folder (or "Move to…") to file them.
+- Create, rename and delete folders. Deleting a folder only takes it off its channels.
+- A channel can be in several topics. Select channels and tap "Topics…" (or the folder
+  button on a channel's page): like Gmail labels, a box is checked when every selected
+  channel has that topic, shows a dash when only some do, and Done applies the changes.
+  "Remove" inside a topic takes the channels out of that topic only.
 - Drag folders to reorder them (long press the row, or touch the handle).
 - Pin folders to keep them on top, and pin channels to the top of a folder.
-- Channels in no folder stay visible under "Unassigned"; pull down to refresh.
+- Channels with no topic stay visible under "Unassigned"; pull down to refresh.
 - Tap a channel to see its videos (uploads playlist plus `videos.list` for length and views,
   2 quota units per 20 videos); tap a video to open it in YouTube. Long press a channel to
   start selecting.

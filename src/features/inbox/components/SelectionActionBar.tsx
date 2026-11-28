@@ -6,16 +6,17 @@ import { colors, spacing } from '@/theme/colors';
 
 type SelectionActionBarProps = {
   selectedCount: number;
-  onMove: () => void;
+  /** Opens the topics sheet for the selected channels. */
+  onEditTopics: () => void;
   onClear: () => void;
-  /** Shown inside a folder, to send the selected channels back to "Unassigned". */
+  /** Shown inside a topic, to take the selected channels out of that topic only. */
   onRemoveFromFolder?: () => void;
 };
 
 /** Bottom bar shown while channels are selected. */
 export function SelectionActionBar({
   selectedCount,
-  onMove,
+  onEditTopics,
   onClear,
   onRemoveFromFolder,
 }: SelectionActionBarProps) {
@@ -34,7 +35,7 @@ export function SelectionActionBar({
             style={styles.button}
           />
         ) : null}
-        <PrimaryButton label="Move to…" onPress={onMove} style={styles.button} />
+        <PrimaryButton label="Topics…" onPress={onEditTopics} style={styles.button} />
       </View>
     </View>
   );

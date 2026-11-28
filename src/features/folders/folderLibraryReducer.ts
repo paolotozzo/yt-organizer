@@ -1,14 +1,15 @@
 import {
+  applyFolderMembershipChanges,
   createFolder,
   deleteFolder,
   forgetUnsubscribedChannels,
-  moveChannelsToFolder,
   moveFolder,
+  removeChannelsFromFolder,
   renameFolder,
   setChannelPinned,
   setFolderPinned,
-  unassignChannels,
   type FolderLibrary,
+  type FolderMembershipChange,
 } from './folderLibrary';
 
 export type FolderLibraryAction =
@@ -18,8 +19,12 @@ export type FolderLibraryAction =
   | { type: 'folderDeleted'; folderId: string }
   | { type: 'folderPinToggled'; folderId: string; isPinned: boolean }
   | { type: 'folderMoved'; fromIndex: number; toIndex: number }
-  | { type: 'channelsMovedToFolder'; channelIds: string[]; folderId: string }
-  | { type: 'channelsUnassigned'; channelIds: string[] }
+  | { type: 'channelsRemovedFromFolder'; channelIds: string[]; folderId: string }
+  | {
+      type: 'folderMembershipsChanged';
+      channelIds: string[];
+      changeByFolderId: Record<string, FolderMembershipChange>;
+    }
   | { type: 'channelPinToggled'; folderId: string; channelId: string; isPinned: boolean }
   | { type: 'subscriptionsRefreshed'; subscribedChannelIds: ReadonlySet<string> };
 
@@ -40,10 +45,10 @@ export function folderLibraryReducer(
       return setFolderPinned(library, action.folderId, action.isPinned);
     case 'folderMoved':
       return moveFolder(library, action.fromIndex, action.toIndex);
-    case 'channelsMovedToFolder':
-      return moveChannelsToFolder(library, action.channelIds, action.folderId);
-    case 'channelsUnassigned':
-      return unassignChannels(library, action.channelIds);
+    case 'channelsRemovedFromFolder':
+      return removeChannelsFromFolder(library, action.channelIds, action.folderId);
+    case 'folderMembershipsChanged':
+      return applyFolderMembershipChanges(library, action.channelIds, action.changeByFolderId);
     case 'channelPinToggled':
       return setChannelPinned(library, action.folderId, action.channelId, action.isPinned);
     case 'subscriptionsRefreshed':

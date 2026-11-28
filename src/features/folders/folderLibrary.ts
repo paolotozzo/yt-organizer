@@ -18,8 +18,12 @@ export type TopicFolder = {
 
 export type FolderLibrary = {
   folders: TopicFolder[];
-  /** A channel belongs to at most one folder. Channels missing here are unassigned. */
-  folderIdByChannelId: Record<string, string>;
+  /**
+   * The folders (topics) each channel is in, without duplicates. A channel can be in several,
+   * e.g. a podcast that is both Tech and Health. Channels missing here are unassigned; an
+   * entry is never an empty list.
+   */
+  folderIdsByChannelId: Record<string, string[]>;
 };
 
 export const MAX_FOLDER_NAME_LENGTH = 40;
@@ -36,11 +40,32 @@ export type FolderNameValidation =
   | { isValid: false; problem: string };
 
 export function createEmptyFolderLibrary(): FolderLibrary {
-  return { folders: [], folderIdByChannelId: {} };
+  return { folders: [], folderIdsByChannelId: {} };
 }
 
 export function findFolder(library: FolderLibrary, folderId: string): TopicFolder | undefined {
   return library.folders.find((folder) => folder.id === folderId);
+}
+
+const NO_FOLDER_IDS: readonly string[] = [];
+
+/** The folders a channel is in, or an empty list when it is unassigned. */
+export function getFolderIdsOfChannel(library: FolderLibrary, channelId: string): readonly string[] {
+  return library.folderIdsByChannelId[channelId] ?? NO_FOLDER_IDS;
+}
+
+export function isChannelInFolder(
+  library: FolderLibrary,
+  channelId: string,
+  folderId: string,
+): boolean {
+  return getFolderIdsOfChannel(library, channelId).includes(folderId);
+}
+
+/** The names of the folders a channel is in, in display order, e.g. ["Tech", "Health"]. */
+export function getFolderNamesOfChannel(library: FolderLibrary, channelId: string): string[] {
+  const folderIds = new Set(getFolderIdsOfChannel(library, channelId));
+  return library.folders.filter((folder) => folderIds.has(folder.id)).map((folder) => folder.name);
 }
 
 /**
@@ -101,17 +126,16 @@ export function renameFolder(
   return updateFolder(library, folderId, (folder) => ({ ...folder, name: folderName }));
 }
 
-/** Deletes the folder. Its channels are not unsubscribed, they become unassigned again. */
+/**
+ * Deletes the folder. Its channels are not unsubscribed: they stay in their other folders,
+ * or become unassigned when it was their only one.
+ */
 export function deleteFolder(library: FolderLibrary, folderId: string): FolderLibrary {
-  const folderIdByChannelId = Object.fromEntries(
-    Object.entries(library.folderIdByChannelId).filter(
-      ([, assignedFolderId]) => assignedFolderId !== folderId,
-    ),
-  );
-
   return {
     folders: library.folders.filter((folder) => folder.id !== folderId),
-    folderIdByChannelId,
+    folderIdsByChannelId: mapFolderIds(library.folderIdsByChannelId, (folderIds) =>
+      folderIds.filter((assignedFolderId) => assignedFolderId !== folderId),
+    ),
   };
 }
 
@@ -168,60 +192,102 @@ export function moveFolder(library: FolderLibrary, fromIndex: number, toIndex: n
   return { ...library, folders };
 }
 
-/**
- * Assigns the channels to the folder, taking them out of any folder they were in before.
- * A channel keeps its pin only when it is already in the target folder.
- */
-export function moveChannelsToFolder(
+/** Adds the channels to the folder. They stay in any other folders they are in. */
+export function addChannelsToFolder(
   library: FolderLibrary,
   channelIds: readonly string[],
   folderId: string,
 ): FolderLibrary {
-  if (!findFolder(library, folderId)) {
+  const channelIdsToAdd = channelIds.filter(
+    (channelId) => !isChannelInFolder(library, channelId, folderId),
+  );
+
+  if (!findFolder(library, folderId) || channelIdsToAdd.length === 0) {
     return library;
   }
 
-  const channelIdsLeavingTheirFolder = channelIds.filter(
-    (channelId) => library.folderIdByChannelId[channelId] !== folderId,
-  );
-  const folderIdByChannelId = { ...library.folderIdByChannelId };
+  const folderIdsByChannelId = { ...library.folderIdsByChannelId };
 
-  for (const channelId of channelIds) {
-    folderIdByChannelId[channelId] = folderId;
+  for (const channelId of channelIdsToAdd) {
+    folderIdsByChannelId[channelId] = [...getFolderIdsOfChannel(library, channelId), folderId];
+  }
+
+  return { ...library, folderIdsByChannelId };
+}
+
+/**
+ * Takes the channels out of this one folder, dropping their pins there. They stay in their
+ * other folders; a channel left in none becomes unassigned.
+ */
+export function removeChannelsFromFolder(
+  library: FolderLibrary,
+  channelIds: readonly string[],
+  folderId: string,
+): FolderLibrary {
+  const channelIdsToRemove = new Set(
+    channelIds.filter((channelId) => isChannelInFolder(library, channelId, folderId)),
+  );
+
+  if (channelIdsToRemove.size === 0) {
+    return library;
   }
 
   return {
-    folders: removeChannelPins(library.folders, channelIdsLeavingTheirFolder),
-    folderIdByChannelId,
+    folders: library.folders.map((folder) =>
+      folder.id === folderId ? unpinChannels(folder, channelIdsToRemove) : folder,
+    ),
+    folderIdsByChannelId: mapFolderIds(library.folderIdsByChannelId, (folderIds, channelId) =>
+      channelIdsToRemove.has(channelId)
+        ? folderIds.filter((assignedFolderId) => assignedFolderId !== folderId)
+        : folderIds,
+    ),
   };
 }
 
-/** Takes the channels out of whichever folder they are in, so they become unassigned. */
+/** What to do with one folder for a set of channels: put them all in, or take them all out. */
+export type FolderMembershipChange = 'add' | 'remove';
+
+/**
+ * Applies several folder changes to the same channels at once, as the topics sheet does when
+ * the user taps Done. Folders without a change keep their channels as they are.
+ */
+export function applyFolderMembershipChanges(
+  library: FolderLibrary,
+  channelIds: readonly string[],
+  changeByFolderId: Readonly<Record<string, FolderMembershipChange>>,
+): FolderLibrary {
+  return Object.entries(changeByFolderId).reduce(
+    (updatedLibrary, [folderId, change]) =>
+      change === 'add'
+        ? addChannelsToFolder(updatedLibrary, channelIds, folderId)
+        : removeChannelsFromFolder(updatedLibrary, channelIds, folderId),
+    library,
+  );
+}
+
+/** Takes the channels out of every folder, so they become unassigned. */
 export function unassignChannels(
   library: FolderLibrary,
   channelIds: readonly string[],
 ): FolderLibrary {
   const channelIdsToUnassign = new Set(channelIds);
-  const folderIdByChannelId = Object.fromEntries(
-    Object.entries(library.folderIdByChannelId).filter(
-      ([channelId]) => !channelIdsToUnassign.has(channelId),
-    ),
-  );
 
   return {
-    folders: removeChannelPins(library.folders, channelIds),
-    folderIdByChannelId,
+    folders: library.folders.map((folder) => unpinChannels(folder, channelIdsToUnassign)),
+    folderIdsByChannelId: mapFolderIds(library.folderIdsByChannelId, (folderIds, channelId) =>
+      channelIdsToUnassign.has(channelId) ? [] : folderIds,
+    ),
   };
 }
 
-/** Pins or unpins a channel inside its folder. Ignored if the channel is not in that folder. */
+/** Pins or unpins a channel inside a folder. Ignored if the channel is not in that folder. */
 export function setChannelPinned(
   library: FolderLibrary,
   folderId: string,
   channelId: string,
   isPinned: boolean,
 ): FolderLibrary {
-  if (library.folderIdByChannelId[channelId] !== folderId) {
+  if (!isChannelInFolder(library, channelId, folderId)) {
     return library;
   }
 
@@ -248,7 +314,7 @@ export function forgetUnsubscribedChannels(
   library: FolderLibrary,
   subscribedChannelIds: ReadonlySet<string>,
 ): FolderLibrary {
-  const unsubscribedChannelIds = Object.keys(library.folderIdByChannelId).filter(
+  const unsubscribedChannelIds = Object.keys(library.folderIdsByChannelId).filter(
     (channelId) => !subscribedChannelIds.has(channelId),
   );
   const unsubscribedPinnedChannelIds = library.folders.flatMap((folder) =>
@@ -277,26 +343,25 @@ function updateFolder(
   };
 }
 
-function removeChannelPins(
-  folders: TopicFolder[],
-  channelIds: readonly string[],
-): TopicFolder[] {
-  if (channelIds.length === 0) {
-    return folders;
+function unpinChannels(folder: TopicFolder, channelIds: ReadonlySet<string>): TopicFolder {
+  if (!folder.pinnedChannelIds.some((channelId) => channelIds.has(channelId))) {
+    return folder;
   }
 
-  const channelIdsToUnpin = new Set(channelIds);
+  return {
+    ...folder,
+    pinnedChannelIds: folder.pinnedChannelIds.filter((channelId) => !channelIds.has(channelId)),
+  };
+}
 
-  return folders.map((folder) => {
-    if (!folder.pinnedChannelIds.some((channelId) => channelIdsToUnpin.has(channelId))) {
-      return folder;
-    }
-
-    return {
-      ...folder,
-      pinnedChannelIds: folder.pinnedChannelIds.filter(
-        (channelId) => !channelIdsToUnpin.has(channelId),
-      ),
-    };
-  });
+/** Rewrites every channel's folder list, dropping channels whose list ends up empty. */
+function mapFolderIds(
+  folderIdsByChannelId: Readonly<Record<string, string[]>>,
+  update: (folderIds: string[], channelId: string) => string[],
+): Record<string, string[]> {
+  return Object.fromEntries(
+    Object.entries(folderIdsByChannelId)
+      .map(([channelId, folderIds]): [string, string[]] => [channelId, update(folderIds, channelId)])
+      .filter(([, folderIds]) => folderIds.length > 0),
+  );
 }

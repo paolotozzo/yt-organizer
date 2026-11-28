@@ -1,9 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  addChannelsToFolder,
   createEmptyFolderLibrary,
   createFolder,
-  moveChannelsToFolder,
   setChannelPinned,
   setFolderPinned,
 } from './folderLibrary';
@@ -12,7 +12,7 @@ import { parseStoredFolderLibrary, serializeFolderLibrary } from './folderLibrar
 describe('parseStoredFolderLibrary', () => {
   it('round-trips a serialized library', () => {
     const library = setChannelPinned(
-      moveChannelsToFolder(
+      addChannelsToFolder(
         setFolderPinned(
           createFolder(createFolder(createEmptyFolderLibrary(), { id: 'a', name: 'A' }), {
             id: 'b',
@@ -40,7 +40,7 @@ describe('parseStoredFolderLibrary', () => {
     );
   });
 
-  it('repairs data that breaks the library invariants', () => {
+  it('migrates version 1, where each channel had one folder, without losing assignments', () => {
     const storedValue = JSON.stringify({
       schemaVersion: 1,
       library: {
@@ -59,7 +59,33 @@ describe('parseStoredFolderLibrary', () => {
         { id: 'b', name: 'B', isPinned: true, pinnedChannelIds: [] },
         { id: 'a', name: 'A', isPinned: false, pinnedChannelIds: ['c1'] },
       ],
-      folderIdByChannelId: { c1: 'a' },
+      folderIdsByChannelId: { c1: ['a'] },
+    });
+  });
+
+  it('repairs version 2 data that breaks the library invariants', () => {
+    const storedValue = JSON.stringify({
+      schemaVersion: 2,
+      library: {
+        folders: [
+          { id: 'a', name: 'A', isPinned: false, pinnedChannelIds: ['c1', 'c3'] },
+          { id: 'b', name: 'B', isPinned: false, pinnedChannelIds: [] },
+        ],
+        folderIdsByChannelId: {
+          c1: ['a', 'b', 'a', 'deleted-folder', 7],
+          c2: [],
+          c3: 'a',
+          c4: ['deleted-folder'],
+        },
+      },
+    });
+
+    expect(parseStoredFolderLibrary(storedValue)).toEqual({
+      folders: [
+        { id: 'a', name: 'A', isPinned: false, pinnedChannelIds: ['c1'] },
+        { id: 'b', name: 'B', isPinned: false, pinnedChannelIds: [] },
+      ],
+      folderIdsByChannelId: { c1: ['a', 'b'] },
     });
   });
 });

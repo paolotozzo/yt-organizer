@@ -96,6 +96,9 @@ function FolderGroup({ label, folders, renderFolder, onReorder }: FolderGroupPro
         renderItem={renderFolder}
         onReorder={onReorder}
         scrollable={false}
+        // The inbox scroll view does the scrolling. A list that cannot scroll on its own is
+        // allowed inside it, which is what keeps React Native's nesting warning away.
+        scrollEnabled={false}
       />
     </View>
   );

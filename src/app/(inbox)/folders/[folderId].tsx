@@ -1,12 +1,15 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
+import { SearchField } from '@/components/SearchField';
+import { ScreenTopBar } from '@/components/ScreenTopBar';
 import { findFolder, type TopicFolder } from '@/features/folders/folderLibrary';
 import { getFolderContents, type FolderContents } from '@/features/folders/folderViews';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
+import { filterChannelsByName } from '@/features/inbox/channelNameSearch';
 import { ChannelRow } from '@/features/inbox/components/ChannelRow';
 import { FolderNameSheet } from '@/features/inbox/components/FolderNameSheet';
 import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
@@ -14,6 +17,7 @@ import { formatChannelCount } from '@/features/inbox/components/FolderRow';
 import { SelectionActionBar } from '@/features/inbox/components/SelectionActionBar';
 import { SortPicker } from '@/features/inbox/components/SortPicker';
 import { describeChannelSubtitle } from '@/features/inbox/describeChannelSubtitle';
+import { useChannelPressHandlers } from '@/features/inbox/useChannelPressHandlers';
 import { useChannelSelection } from '@/features/inbox/useChannelSelection';
 import type { SubscribedChannel } from '@/features/subscriptions/subscribedChannel';
 import { colors, spacing } from '@/theme/colors';
@@ -34,7 +38,7 @@ export default function FolderScreen() {
   if (!folder) {
     return (
       <SafeAreaView style={styles.screen}>
-        <FolderTopBar title="Folder not found" />
+        <ScreenTopBar title="Folder not found" />
         <Text style={styles.emptyHint}>This folder no longer exists.</Text>
       </SafeAreaView>
     );
@@ -59,14 +63,24 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
   const selection = useChannelSelection();
   const { selectedChannelIds, clearSelection } = selection;
   const now = useCurrentTime();
+  const { handleChannelPress, handleChannelLongPress } = useChannelPressHandlers(
+    selection.selectedCount > 0,
+    selection.toggleChannel,
+  );
   const [isFolderPickerVisible, setIsFolderPickerVisible] = useState(false);
   const [isRenameSheetVisible, setIsRenameSheetVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const sections = useMemo(
-    () => buildChannelSections(getFolderContents(library, folder, subscribedChannels)),
+  const folderContents = useMemo(
+    () => getFolderContents(library, folder, subscribedChannels),
     [library, folder, subscribedChannels],
   );
-  const channelCount = sections.reduce((total, section) => total + section.data.length, 0);
+  const channelCount = folderContents.pinnedChannels.length + folderContents.otherChannels.length;
+  const sections = useMemo(
+    () => buildChannelSections(filterFolderContents(folderContents, searchQuery)),
+    [folderContents, searchQuery],
+  );
+  const isSearching = searchQuery.trim().length > 0;
 
   const togglePin = useCallback(
     (channelId: string, isPinned: boolean) => setChannelPinned(folder.id, channelId, isPinned),
@@ -104,7 +118,7 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
-      <FolderTopBar title={folder.name} subtitle={formatChannelCount(channelCount)}>
+      <ScreenTopBar title={folder.name} subtitle={formatChannelCount(channelCount)}>
         <IconButton
           iconName={folder.isPinned ? 'pin' : 'pin-outline'}
           color={folder.isPinned ? colors.pin : colors.textSecondary}
@@ -122,14 +136,27 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
           accessibilityLabel="Delete folder"
           onPress={confirmDelete}
         />
-      </FolderTopBar>
+      </ScreenTopBar>
 
       <SectionList
         sections={sections}
         keyExtractor={(channel) => channel.channelId}
         contentContainerStyle={styles.listContent}
+        // Taps on a channel still work while the search keyboard is open.
+        keyboardShouldPersistTaps="handled"
         stickySectionHeadersEnabled={false}
-        ListHeaderComponent={channelCount > 0 ? <SortPicker /> : undefined}
+        ListHeaderComponent={
+          channelCount > 0 ? (
+            <View style={styles.listHeader}>
+              <SearchField
+                query={searchQuery}
+                onQueryChange={setSearchQuery}
+                placeholder={`Search in ${folder.name}`}
+              />
+              <SortPicker />
+            </View>
+          ) : undefined
+        }
         renderSectionHeader={({ section }) => (
           <Text style={styles.sectionTitle}>{section.title}</Text>
         )}
@@ -137,7 +164,8 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
           <ChannelRow
             channel={channel}
             isSelected={selectedChannelIds.has(channel.channelId)}
-            onToggleSelection={selection.toggleChannel}
+            onPress={handleChannelPress}
+            onLongPress={handleChannelLongPress}
             isPinned={section.isPinnedSection}
             onTogglePin={togglePin}
             subtitle={describeChannelSubtitle({
@@ -149,8 +177,9 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
         )}
         ListEmptyComponent={
           <Text style={styles.emptyHint}>
-            No channels here yet. On the inbox, select channels and tap this folder to move them
-            in.
+            {isSearching
+              ? 'No channel in this folder matches your search.'
+              : 'No channels here yet. On the inbox, long press channels to select them, then tap this folder to move them in.'}
           </Text>
         }
       />
@@ -185,32 +214,14 @@ function FolderContentsScreen({ folder }: { folder: TopicFolder }) {
   );
 }
 
-type FolderTopBarProps = {
-  title: string;
-  subtitle?: string;
-  /** Action buttons shown on the right. */
-  children?: ReactNode;
-};
-
-function FolderTopBar({ title, subtitle, children }: FolderTopBarProps) {
-  return (
-    <View style={styles.topBar}>
-      <IconButton iconName="arrow-left" accessibilityLabel="Back" onPress={() => router.back()} />
-      <View style={styles.titles}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      </View>
-      {children}
-    </View>
-  );
+function filterFolderContents(contents: FolderContents, searchQuery: string): FolderContents {
+  return {
+    pinnedChannels: filterChannelsByName(contents.pinnedChannels, searchQuery),
+    otherChannels: filterChannelsByName(contents.otherChannels, searchQuery),
+  };
 }
 
-function buildChannelSections({
-  pinnedChannels,
-  otherChannels,
-}: FolderContents): ChannelSection[] {
+function buildChannelSections({ pinnedChannels, otherChannels }: FolderContents): ChannelSection[] {
   const sections: ChannelSection[] = [];
 
   if (pinnedChannels.length > 0) {
@@ -230,29 +241,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.extraSmall,
-    paddingHorizontal: spacing.small,
-    paddingVertical: spacing.small,
-  },
-  titles: {
-    flex: 1,
-    gap: 2,
-  },
-  title: {
-    color: colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 13,
-  },
   listContent: {
     paddingHorizontal: spacing.medium,
     paddingBottom: 120,
+  },
+  listHeader: {
+    gap: spacing.small,
+    paddingTop: spacing.small,
   },
   sectionTitle: {
     color: colors.textSecondary,

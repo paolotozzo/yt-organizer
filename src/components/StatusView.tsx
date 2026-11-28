@@ -3,17 +3,17 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { colors, spacing } from '@/theme/colors';
 
-type InboxStatusViewProps =
-  | { status: 'loading' }
+type StatusViewProps =
+  | { status: 'loading'; message: string }
   | { status: 'failed'; errorMessage: string; onRetry: () => void };
 
-/** Full-screen state shown before the subscriptions and folders are ready. */
-export function InboxStatusView(props: InboxStatusViewProps) {
+/** Full-screen loading or error state, shown before a screen's data is ready. */
+export function StatusView(props: StatusViewProps) {
   if (props.status === 'loading') {
     return (
       <View style={styles.container}>
         <ActivityIndicator color={colors.accent} size="large" />
-        <Text style={styles.message}>Loading your subscriptions…</Text>
+        <Text style={styles.message}>{props.message}</Text>
       </View>
     );
   }

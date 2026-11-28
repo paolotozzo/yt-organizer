@@ -10,7 +10,8 @@ import { colors, spacing } from '@/theme/colors';
 type ChannelRowProps = {
   channel: SubscribedChannel;
   isSelected: boolean;
-  onToggleSelection: (channelId: string) => void;
+  onPress: (channelId: string) => void;
+  onLongPress: (channelId: string) => void;
   /** Passed inside a folder, where channels can be pinned to the top. */
   onTogglePin?: (channelId: string, isPinned: boolean) => void;
   isPinned?: boolean;
@@ -20,28 +21,36 @@ type ChannelRowProps = {
 
 const AVATAR_SIZE = 44;
 
-/** A subscribed channel. Tapping the row selects it, so several can be moved at once. */
+/**
+ * A subscribed channel. The screen decides what a tap does (usually open its videos); a long
+ * press selects it, so several channels can be moved at once.
+ */
 export const ChannelRow = memo(function ChannelRow({
   channel,
   isSelected,
-  onToggleSelection,
+  onPress,
+  onLongPress,
   onTogglePin,
   isPinned = false,
   subtitle,
 }: ChannelRowProps) {
   return (
     <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: isSelected }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isSelected }}
       accessibilityLabel={channel.title}
-      onPress={() => onToggleSelection(channel.channelId)}
+      accessibilityHint="Long press to select"
+      onPress={() => onPress(channel.channelId)}
+      onLongPress={() => onLongPress(channel.channelId)}
+      delayLongPress={300}
       style={({ pressed }) => [
         styles.row,
         isSelected && styles.selectedRow,
         pressed && !isSelected && styles.pressedRow,
       ]}
     >
-      <SelectionIndicator isSelected={isSelected} />
+      {/* Only selected rows change, so starting a selection re-renders one row, not all. */}
+      {isSelected ? <SelectionIndicator /> : null}
       <Avatar imageUrl={channel.thumbnailUrl} name={channel.title} size={AVATAR_SIZE} />
       <View style={styles.details}>
         <Text style={styles.title} numberOfLines={1}>
@@ -74,14 +83,8 @@ function NewItemsBadge({ count }: { count: number }) {
   );
 }
 
-function SelectionIndicator({ isSelected }: { isSelected: boolean }) {
-  return (
-    <MaterialCommunityIcons
-      name={isSelected ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
-      size={22}
-      color={isSelected ? colors.accent : colors.surfaceBorder}
-    />
-  );
+function SelectionIndicator() {
+  return <MaterialCommunityIcons name="checkbox-marked-circle" size={22} color={colors.accent} />;
 }
 
 const styles = StyleSheet.create({

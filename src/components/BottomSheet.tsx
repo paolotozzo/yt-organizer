@@ -1,8 +1,9 @@
 import type { PropsWithChildren } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '@/theme/colors';
+import { useKeyboardHeight } from '@/utils/useKeyboardHeight';
 
 type BottomSheetProps = PropsWithChildren<{
   isVisible: boolean;
@@ -10,9 +11,16 @@ type BottomSheetProps = PropsWithChildren<{
   onClose: () => void;
 }>;
 
-/** A dark panel that slides up from the bottom. Tapping outside it closes it. */
+/**
+ * A dark panel that slides up from the bottom and stays above the keyboard. Tapping outside it
+ * closes it.
+ */
 export function BottomSheet({ isVisible, title, onClose, children }: BottomSheetProps) {
   const safeAreaInsets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
+  // The modal draws edge to edge, so Android does not shrink it for the keyboard: lift the
+  // sheet ourselves. The keyboard already covers the navigation bar inset when it is open.
+  const bottomInset = Math.max(safeAreaInsets.bottom, keyboardHeight);
 
   return (
     <Modal
@@ -23,24 +31,19 @@ export function BottomSheet({ isVisible, title, onClose, children }: BottomSheet
       navigationBarTranslucent
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.container}>
         <Pressable
           style={styles.scrim}
           accessibilityRole="button"
           accessibilityLabel="Close"
           onPress={onClose}
         />
-        <View
-          style={[styles.sheet, { paddingBottom: safeAreaInsets.bottom + spacing.medium }]}
-        >
+        <View style={[styles.sheet, { paddingBottom: bottomInset + spacing.medium }]}>
           <View style={styles.handle} />
           <Text style={styles.title}>{title}</Text>
           {children}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }

@@ -14,10 +14,16 @@ export const youtubeCacheMaxAge = {
   latestUploads: 6 * HOUR,
   /** On pull to refresh, latest uploads newer than this are not checked again. */
   latestUploadsOnRefresh: HOUR / 4,
+  /** The first page of a channel's videos (older pages are not cached). */
+  channelVideos: HOUR,
+  /** The user's own playlists, offered when saving a video. */
+  playlists: 6 * HOUR,
 } as const;
 
 export const youtubeCacheEntryNames = {
   subscriptions: 'subscriptions',
   subscriptionRanking: (order: string) => `subscriptionRanking:${order}`,
   latestUploads: 'latestUploads',
+  channelVideos: (channelId: string) => `channelVideos:${channelId}`,
+  playlists: 'playlists',
 } as const;

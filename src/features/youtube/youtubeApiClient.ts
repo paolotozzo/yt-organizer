@@ -22,7 +22,7 @@ export class YoutubeApiError extends Error {
 }
 
 /**
- * Calls a YouTube Data API v3 resource, e.g. `fetchYoutubeResource(token, 'subscriptions',
+ * Reads a YouTube Data API v3 resource, e.g. `fetchYoutubeResource(token, 'subscriptions',
  * { part: 'snippet', mine: 'true' })`, and returns the parsed JSON body.
  */
 export async function fetchYoutubeResource<ResponseBody>(
@@ -30,12 +30,43 @@ export async function fetchYoutubeResource<ResponseBody>(
   resourcePath: string,
   queryParameters: Record<string, string>,
 ): Promise<ResponseBody> {
+  return requestYoutubeResource<ResponseBody>(accessToken, resourcePath, queryParameters);
+}
+
+/**
+ * Creates a YouTube Data API v3 resource, e.g. a playlist item, and returns the created
+ * resource. Writes cost far more quota than reads (50 units for a playlist item).
+ */
+export async function insertYoutubeResource<ResponseBody>(
+  accessToken: string,
+  resourcePath: string,
+  queryParameters: Record<string, string>,
+  resource: unknown,
+): Promise<ResponseBody> {
+  return requestYoutubeResource<ResponseBody>(accessToken, resourcePath, queryParameters, {
+    method: 'POST',
+    body: resource,
+  });
+}
+
+async function requestYoutubeResource<ResponseBody>(
+  accessToken: string,
+  resourcePath: string,
+  queryParameters: Record<string, string>,
+  write?: { method: 'POST'; body: unknown },
+): Promise<ResponseBody> {
   const url = `${YOUTUBE_DATA_API_BASE_URL}/${resourcePath}?${new URLSearchParams(queryParameters)}`;
   let response: Response;
 
   try {
     response = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
+      method: write?.method ?? 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        ...(write ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: write ? JSON.stringify(write.body) : undefined,
     });
   } catch (error) {
     throw new YoutubeApiError('Could not reach YouTube. Check your connection and try again.', {
@@ -59,7 +90,10 @@ async function toYoutubeApiError(response: Response): Promise<YoutubeApiError> {
     httpStatus: response.status,
   };
 
-  return new YoutubeApiError(describeFailure(response.status, reason, errorDetails.cause), errorDetails);
+  return new YoutubeApiError(
+    describeFailure(response.status, reason, errorDetails.cause),
+    errorDetails,
+  );
 }
 
 function describeFailure(httpStatus: number, reason: string | undefined, cause: string): string {
@@ -78,6 +112,13 @@ function describeFailure(httpStatus: number, reason: string | undefined, cause: 
       return 'The app is missing YouTube access. Sign out, sign in again and allow every permission.';
     case 'subscriptionForbidden':
       return 'Your subscriptions are not accessible for this account.';
+    case 'playlistContainsMaximumNumberOfVideos':
+      return 'That playlist is full.';
+    case 'playlistOperationUnsupported':
+      return 'YouTube does not let apps add videos to this playlist.';
+    case 'playlistItemsNotAccessible':
+    case 'forbidden':
+      return 'You can only add videos to your own playlists.';
     default:
       return `YouTube returned an error (${cause}).`;
   }

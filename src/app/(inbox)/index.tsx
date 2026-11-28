@@ -5,20 +5,23 @@ import { ScrollViewContainer } from 'react-native-reorderable-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { IconButton } from '@/components/IconButton';
+import { SearchField } from '@/components/SearchField';
+import { StatusView } from '@/components/StatusView';
 import { findFolder, type FolderLibrary } from '@/features/folders/folderLibrary';
 import { getUnassignedChannels } from '@/features/folders/folderViews';
 import { useChannelInbox } from '@/features/inbox/ChannelInboxProvider';
+import { filterChannelsByName } from '@/features/inbox/channelNameSearch';
 import { ChannelRow } from '@/features/inbox/components/ChannelRow';
 import { FolderNameSheet } from '@/features/inbox/components/FolderNameSheet';
 import { FolderPickerSheet } from '@/features/inbox/components/FolderPickerSheet';
 import { InboxHeader } from '@/features/inbox/components/InboxHeader';
-import { InboxStatusView } from '@/features/inbox/components/InboxStatusView';
 import { ReorderableFolderLists } from '@/features/inbox/components/ReorderableFolderLists';
 import { SectionHeader } from '@/features/inbox/components/SectionHeader';
 import { SegmentedControl } from '@/features/inbox/components/SegmentedControl';
 import { SelectionActionBar } from '@/features/inbox/components/SelectionActionBar';
 import { SortPicker } from '@/features/inbox/components/SortPicker';
 import { describeChannelSubtitle } from '@/features/inbox/describeChannelSubtitle';
+import { useChannelPressHandlers } from '@/features/inbox/useChannelPressHandlers';
 import { useChannelSelection } from '@/features/inbox/useChannelSelection';
 import { colors, spacing } from '@/theme/colors';
 import { useCurrentTime } from '@/utils/useCurrentTime';
@@ -40,7 +43,7 @@ export default function InboxScreen() {
   if (!inbox.isLibraryLoaded || inbox.subscriptionsState.status === 'loading') {
     return (
       <SafeAreaView style={styles.screen}>
-        <InboxStatusView status="loading" />
+        <StatusView status="loading" message="Loading your subscriptions…" />
       </SafeAreaView>
     );
   }
@@ -48,7 +51,7 @@ export default function InboxScreen() {
   if (inbox.subscriptionsState.status === 'failed') {
     return (
       <SafeAreaView style={styles.screen}>
-        <InboxStatusView
+        <StatusView
           status="failed"
           errorMessage={inbox.subscriptionsState.errorMessage}
           onRetry={inbox.refreshSubscriptions}
@@ -73,6 +76,7 @@ function OrganizedInbox() {
   } = useChannelInbox();
   const selection = useChannelSelection();
   const [channelFilter, setChannelFilter] = useState<ChannelFilter>('unassigned');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isFolderPickerVisible, setIsFolderPickerVisible] = useState(false);
   const [isNewFolderSheetVisible, setIsNewFolderSheetVisible] = useState(false);
 
@@ -80,7 +84,12 @@ function OrganizedInbox() {
     () => getUnassignedChannels(library, subscribedChannels),
     [library, subscribedChannels],
   );
-  const visibleChannels = channelFilter === 'unassigned' ? unassignedChannels : subscribedChannels;
+  const filteredChannels = channelFilter === 'unassigned' ? unassignedChannels : subscribedChannels;
+  const visibleChannels = useMemo(
+    () => filterChannelsByName(filteredChannels, searchQuery),
+    [filteredChannels, searchQuery],
+  );
+  const isSearching = searchQuery.trim().length > 0;
   const hasSelection = selection.selectedCount > 0;
   const now = useCurrentTime();
   const { selectedChannelIds, clearSelection } = selection;
@@ -106,10 +115,17 @@ function OrganizedInbox() {
     [hasSelection, moveSelectionToFolder],
   );
 
+  const { handleChannelPress, handleChannelLongPress } = useChannelPressHandlers(
+    hasSelection,
+    selection.toggleChannel,
+  );
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollViewContainer
         contentContainerStyle={styles.content}
+        // Taps on a channel still work while the search keyboard is open.
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -141,7 +157,11 @@ function OrganizedInbox() {
         <View style={styles.channelsSection}>
           <SectionHeader
             title="Channels"
-            subtitle={describeChannelCount(channelFilter, visibleChannels.length)}
+            subtitle={
+              hasSelection
+                ? describeChannelCount(channelFilter, visibleChannels.length, isSearching)
+                : `${describeChannelCount(channelFilter, visibleChannels.length, isSearching)} · long press to select`
+            }
             accessory={
               <SegmentedControl
                 options={CHANNEL_FILTER_OPTIONS}
@@ -150,12 +170,16 @@ function OrganizedInbox() {
               />
             }
           />
+          <SearchField
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            placeholder="Search channels"
+            style={styles.searchField}
+          />
           <SortPicker />
           {visibleChannels.length === 0 ? (
             <Text style={styles.emptyHint}>
-              {channelFilter === 'unassigned'
-                ? 'Every channel is in a folder. Nice and tidy!'
-                : 'You are not subscribed to any channel yet.'}
+              {describeEmptyChannelList(channelFilter, isSearching)}
             </Text>
           ) : (
             visibleChannels.map((channel) => (
@@ -163,7 +187,8 @@ function OrganizedInbox() {
                 key={channel.channelId}
                 channel={channel}
                 isSelected={selectedChannelIds.has(channel.channelId)}
-                onToggleSelection={selection.toggleChannel}
+                onPress={handleChannelPress}
+                onLongPress={handleChannelLongPress}
                 subtitle={describeChannelSubtitle({
                   sortOrder,
                   latestUploadAt: latestUploadAtByChannelId.get(channel.channelId),
@@ -211,9 +236,30 @@ function findFolderNameOfChannel(library: FolderLibrary, channelId: string): str
   return folderId ? findFolder(library, folderId)?.name : undefined;
 }
 
-function describeChannelCount(channelFilter: ChannelFilter, channelCount: number): string {
+function describeChannelCount(
+  channelFilter: ChannelFilter,
+  channelCount: number,
+  isSearching: boolean,
+): string {
   const channels = channelCount === 1 ? '1 channel' : `${channelCount} channels`;
+
+  if (isSearching) {
+    return `${channels} found`;
+  }
+
   return channelFilter === 'unassigned' ? `${channels} not in a folder` : `${channels} in total`;
+}
+
+function describeEmptyChannelList(channelFilter: ChannelFilter, isSearching: boolean): string {
+  if (isSearching) {
+    return channelFilter === 'unassigned'
+      ? 'No unassigned channel matches. Switch to All to search every channel.'
+      : 'No channel matches your search.';
+  }
+
+  return channelFilter === 'unassigned'
+    ? 'Every channel is in a folder. Nice and tidy!'
+    : 'You are not subscribed to any channel yet.';
 }
 
 const styles = StyleSheet.create({
@@ -228,6 +274,9 @@ const styles = StyleSheet.create({
   },
   channelsSection: {
     marginTop: spacing.large,
+  },
+  searchField: {
+    marginBottom: spacing.small,
   },
   emptyHint: {
     color: colors.textSecondary,

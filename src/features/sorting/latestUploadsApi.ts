@@ -1,4 +1,5 @@
 import { fetchYoutubeResource, YoutubeApiError } from '@/features/youtube/youtubeApiClient';
+import { getUploadsPlaylistId } from '@/features/youtube/uploadsPlaylist';
 import { mapWithConcurrency } from '@/utils/mapWithConcurrency';
 
 import type { LatestUploadCache } from './latestUploadCache';
@@ -9,14 +10,6 @@ const CONCURRENT_REQUEST_LIMIT = 6;
 type PlaylistItemListResponse = {
   items?: { contentDetails?: { videoPublishedAt?: string } }[];
 };
-
-/**
- * A channel's uploads live in a playlist whose id is the channel id with "UC" replaced by
- * "UU". Reading it is far cheaper than search.list (1 quota unit instead of 100).
- */
-export function getUploadsPlaylistId(channelId: string): string | null {
-  return channelId.startsWith('UC') ? `UU${channelId.slice(2)}` : null;
-}
 
 /** Publish time of the channel's newest upload, or null when it has none. */
 export async function fetchLatestUploadTime(
